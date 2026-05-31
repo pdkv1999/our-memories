@@ -88,7 +88,7 @@ export default function PhotoCard({ photo, showUploader = true }: Props) {
       {showUploader && (
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-white text-[10px] font-bold shadow-sm ${
-            photo.uploadedBy === 'You' ? 'bg-rose-400' : 'bg-violet-400'
+            photo.uploadedBy === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
           }`}>
             {photo.uploadedBy[0]}
           </div>

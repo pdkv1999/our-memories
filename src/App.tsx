@@ -58,7 +58,7 @@ function AppContent() {
 
   function acceptIncoming() {
     if (!incomingCallOffer) return
-    const otherUser = state.currentUser === 'You' ? 'Partner' : 'You'
+    const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
     const call: ActiveCall = {
       id: incomingCallOffer.callId,
       type: incomingCallOffer.callType,
@@ -130,7 +130,7 @@ function AppContent() {
         {incomingCallOffer && !activeCall && (
           <IncomingCallBanner
             key="incoming"
-            callerName={state.currentUser === 'You' ? 'Partner' : 'You'}
+            callerName={state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'}
             callType={incomingCallOffer.callType}
             onAccept={acceptIncoming}
             onDecline={declineIncoming}

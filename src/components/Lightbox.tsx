@@ -131,7 +131,7 @@ export default function Lightbox() {
       <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
         <div className="flex items-center gap-2">
           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-            photo.uploadedBy === 'You' ? 'bg-rose-400' : 'bg-violet-400'
+            photo.uploadedBy === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
           }`}>
             {photo.uploadedBy[0]}
           </div>
@@ -367,7 +367,7 @@ export default function Lightbox() {
                 {photo.comments.map(comment => (
                   <div key={comment.id} className="flex gap-2.5 group">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
-                      comment.author === 'You' ? 'bg-rose-400' : 'bg-violet-400'
+                      comment.author === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
                     }`}>
                       {comment.author[0]}
                     </div>

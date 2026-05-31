@@ -62,7 +62,7 @@ const defaultState: AppState = {
   activeAlbumId: null,
   lightboxPhotoId: null,
   isUploadOpen: false,
-  currentUser: 'You',
+  currentUser: 'Dileep',
   searchQuery: '',
   sortOrder: 'newest',
   selectedPhotoIds: [],
@@ -356,7 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             comments: p.comments ?? [],
             albumIds: p.albumIds ?? [],
           }))
-          const savedUser = loadState()?.currentUser ?? 'You'
+          const savedUser = loadState()?.currentUser ?? 'Dileep'
           const savedSort = loadState()?.sortOrder ?? 'newest'
           dispatch({
             type: 'LOAD_STATE', state: {
@@ -383,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             albums:      saved.albums ?? [],
             messages:    saved.messages ?? [],
             callRecords: saved.callRecords ?? [],
-            currentUser: saved.currentUser ?? 'You',
+            currentUser: saved.currentUser ?? 'Dileep',
             sortOrder:   saved.sortOrder ?? 'newest',
           },
         })

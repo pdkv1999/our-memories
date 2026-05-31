@@ -111,7 +111,7 @@ export function CallScreen({ call, incomingOffer, onEnd }: CallScreenProps) {
   } = useWebRTC({
     callId: call.id,
     localUser: state.currentUser,
-    remoteUser: state.currentUser === 'You' ? 'Partner' : 'You',
+    remoteUser: state.currentUser === 'Dileep' ? 'Siri' : 'Dileep',
     callType: call.type,
     onRemoteStream: () => setCallConnected(true),
     onCallEnded: onEnd,
@@ -155,7 +155,7 @@ export function CallScreen({ call, incomingOffer, onEnd }: CallScreenProps) {
     onEnd()
   }
 
-  const otherUser = state.currentUser === 'You' ? 'Partner' : 'You'
+  const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
   const isVideo = call.type === 'video'
 
   return (

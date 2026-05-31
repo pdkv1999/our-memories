@@ -16,7 +16,7 @@ export default function Navbar() {
     { page: 'chat', label: 'Chat', icon: <MessageCircleHeart size={18} />, badge: state.unreadCount },
   ]
 
-  const users = ['You', 'Partner']
+  const users = ['Dileep', 'Siri']
 
   if (state.currentPage === 'chat') return null
 
@@ -88,7 +88,7 @@ export default function Navbar() {
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-rose-50 transition-colors"
           >
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-              state.currentUser === 'You' ? 'bg-rose-400' : 'bg-violet-400'
+              state.currentUser === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
             }`}>
               {state.currentUser[0]}
             </div>
@@ -107,7 +107,7 @@ export default function Navbar() {
                   }`}
                 >
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                    u === 'You' ? 'bg-rose-400' : 'bg-violet-400'
+                    u === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
                   }`}>
                     {u[0]}
                   </div>

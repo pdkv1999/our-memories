@@ -127,7 +127,7 @@ export default function ChatPage({ onStartCall, onBack }: { onStartCall: (type: 
   const recordTimerRef = useRef<ReturnType<typeof setInterval>>()
   const recordStartRef = useRef(0)
 
-  const otherUser = state.currentUser === 'You' ? 'Partner' : 'You'
+  const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
