@@ -4,6 +4,7 @@ import photosRouter from './routes/photos.js'
 import albumsRouter from './routes/albums.js'
 import messagesRouter from './routes/messages.js'
 import callsRouter from './routes/calls.js'
+import signalsRouter from './routes/signals.js'
 
 const app = express()
 
@@ -19,6 +20,7 @@ app.use('/api/photos',   photosRouter)
 app.use('/api/albums',   albumsRouter)
 app.use('/api/messages', messagesRouter)
 app.use('/api/calls',    callsRouter)
+app.use('/api/signals',  signalsRouter)
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }))
 

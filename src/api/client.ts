@@ -71,6 +71,25 @@ export const callsApi = {
   save: (c: Partial<CallRecord>) => post<CallRecord>('/calls', c),
 }
 
+// ─── Call Signals ──────────────────────────────────────────────────────────
+
+export interface CallSignal {
+  id: string
+  from_user: string
+  to_user: string
+  call_type: string
+  status: 'calling' | 'accepted' | 'declined' | 'ended' | 'missed'
+  created_at: string
+  updated_at: string
+}
+
+export const signalsApi = {
+  get:    (user: string)                    => get<CallSignal | null>(`/signals?user=${encodeURIComponent(user)}`),
+  start:  (fromUser: string, toUser: string, callType: string) =>
+    post<CallSignal>('/signals', { fromUser, toUser, callType }),
+  update: (id: string, status: string)     => patch<CallSignal>(`/signals/${id}`, { status }),
+}
+
 // ─── Health ────────────────────────────────────────────────────────────────
 
 export async function checkHealth(): Promise<boolean> {

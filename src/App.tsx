@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { AppProvider, useApp } from './context/AppContext'
 import Navbar from './components/Navbar'
@@ -10,8 +10,8 @@ import Lightbox from './components/Lightbox'
 import UploadModal from './components/UploadModal'
 import ChatPage from './components/Chat/ChatPage'
 import { CallScreen, IncomingCallBanner } from './components/Call/CallInterface'
-import { useIncomingCallSignal } from './hooks/useWebRTC'
-import { ActiveCall, CallType } from './types'
+import { signalsApi, CallSignal } from './api/client'
+import { CallType } from './types'
 
 function GalleryPage() {
   const { state } = useApp()
@@ -19,9 +19,7 @@ function GalleryPage() {
     <div className="page-enter">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Our Gallery</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {state.photos.length} memories shared together
-        </p>
+        <p className="text-sm text-gray-500 mt-0.5">{state.photos.length} memories shared together</p>
       </div>
       <MasonryGrid />
     </div>
@@ -29,73 +27,79 @@ function GalleryPage() {
 }
 
 function AppContent() {
-  const { state, dispatch, login, saveCallRecord, partnerName } = useApp()
+  const { state, dispatch, login, saveCallRecord, partnerName, apiAvailable } = useApp()
 
-  if (!state.isLoggedIn) {
-    return <LoginPage onLogin={login} />
-  }
-  const [activeCall, setActiveCall] = useState<ActiveCall | null>(null)
-  const [incomingCallOffer, setIncomingCallOffer] = useState<{ offer: RTCSessionDescriptionInit; callId: string; callType: CallType } | null>(null)
+  const [activeSignal,   setActiveSignal]   = useState<CallSignal | null>(null)
+  const [incomingSignal, setIncomingSignal] = useState<CallSignal | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval>>()
 
-  // Listen for incoming calls from other tab
-  useIncomingCallSignal(state.currentUser, useCallback((signal) => {
-    // Only react if there's no active call and no already-incoming call
-    if (!activeCall && !incomingCallOffer) {
-      setIncomingCallOffer({
-        offer: signal.sdp,
-        callId: signal.callId,
-        callType: signal.callType as CallType,
-      })
+  // Poll for incoming calls every 3 s
+  useEffect(() => {
+    if (!state.isLoggedIn || !apiAvailable) return
+
+    async function poll() {
+      try {
+        const signal = await signalsApi.get(state.currentUser)
+        if (!signal) {
+          // No active signal — clear any stale incoming banner
+          setIncomingSignal(null)
+          return
+        }
+        // Show incoming banner if someone else is calling us and we haven't acted yet
+        if (signal.to_user === state.currentUser && signal.status === 'calling' && !activeSignal) {
+          setIncomingSignal(signal)
+        }
+        // If we initiated and status changed to ended/declined externally, clean up
+        if (signal.from_user === state.currentUser &&
+            (signal.status === 'ended' || signal.status === 'declined' || signal.status === 'missed')) {
+          setActiveSignal(null)
+        }
+      } catch { /* ignore */ }
     }
-  }, [activeCall, incomingCallOffer]))
 
-  function startCall(type: CallType) {
-    const call: ActiveCall = {
-      id: crypto.randomUUID(),
-      type,
-      status: 'calling',
-      initiator: state.currentUser,
-      startedAt: new Date().toISOString(),
+    pollRef.current = setInterval(poll, 3000)
+    return () => clearInterval(pollRef.current)
+  }, [state.isLoggedIn, apiAvailable, state.currentUser, activeSignal])
+
+  async function startCall(type: CallType) {
+    try {
+      const signal = await signalsApi.start(state.currentUser, partnerName, type)
+      setActiveSignal(signal)
+      setIncomingSignal(null)
+    } catch (err) {
+      console.error('Failed to start call', err)
     }
-    setActiveCall(call)
-    dispatch({ type: 'SET_ACTIVE_CALL', call })
   }
 
-  function acceptIncoming() {
-    if (!incomingCallOffer) return
-    const otherUser = partnerName
-    const call: ActiveCall = {
-      id: incomingCallOffer.callId,
-      type: incomingCallOffer.callType,
-      status: 'connected',
-      initiator: otherUser,
-      startedAt: new Date().toISOString(),
-    }
-    setActiveCall(call)
-    dispatch({ type: 'SET_ACTIVE_CALL', call })
-    setIncomingCallOffer(null)
+  async function acceptIncoming() {
+    if (!incomingSignal) return
+    await signalsApi.update(incomingSignal.id, 'accepted').catch(() => {})
+    setActiveSignal({ ...incomingSignal, status: 'accepted' })
+    setIncomingSignal(null)
   }
 
-  function declineIncoming() {
-    setIncomingCallOffer(null)
+  async function declineIncoming() {
+    if (!incomingSignal) return
+    await signalsApi.update(incomingSignal.id, 'declined').catch(() => {})
+    setIncomingSignal(null)
   }
 
-  function endCall() {
-    if (activeCall) {
+  function handleCallEnd(duration: number) {
+    if (activeSignal) {
       saveCallRecord({
-        id: activeCall.id,
-        initiator: activeCall.initiator,
-        type: activeCall.type,
-        status: activeCall.status === 'connected' ? 'completed' : 'missed',
-        startedAt: activeCall.startedAt ?? new Date().toISOString(),
-        duration: activeCall.startedAt
-          ? Math.floor((Date.now() - new Date(activeCall.startedAt).getTime()) / 1000)
-          : 0,
+        id: activeSignal.id,
+        initiator: activeSignal.from_user,
+        type: activeSignal.call_type as CallType,
+        status: activeSignal.status === 'accepted' || duration > 0 ? 'completed' : 'missed',
+        startedAt: activeSignal.created_at,
+        duration,
       })
     }
-    setActiveCall(null)
-    dispatch({ type: 'SET_ACTIVE_CALL', call: null })
+    setActiveSignal(null)
+    setIncomingSignal(null)
   }
+
+  if (!state.isLoggedIn) return <LoginPage onLogin={login} />
 
   const isChat = state.currentPage === 'chat'
 
@@ -103,22 +107,44 @@ function AppContent() {
     <div className="min-h-dvh flex flex-col">
       <Navbar />
 
-      {/* Page content */}
       {isChat ? (
-        <ChatPage
-          onStartCall={startCall}
-          onBack={() => dispatch({ type: 'SET_PAGE', page: 'gallery' })}
-        />
+        <div className="pt-0">
+          <ChatPage onStartCall={startCall} />
+        </div>
       ) : (
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 pt-24 pb-10">
           <AnimatePresence mode="wait">
-            {state.currentPage === 'gallery' && <GalleryPage key="gallery" />}
-            {state.currentPage === 'albums' && <AlbumsPage key="albums" />}
+            {state.currentPage === 'gallery'  && <GalleryPage key="gallery" />}
+            {state.currentPage === 'albums'   && <AlbumsPage  key="albums"  />}
             {state.currentPage === 'memories' && <MemoriesPage key="memories" />}
           </AnimatePresence>
         </main>
       )}
 
+      {/* Mobile bottom nav on chat page */}
+      {isChat && (
+        <nav className="fixed bottom-0 inset-x-0 z-50 glass border-t border-rose-100 safe-area-bottom">
+          <div className="flex">
+            {([
+              { page: 'gallery'  as const, label: 'Gallery',  emoji: '🖼️' },
+              { page: 'albums'   as const, label: 'Albums',   emoji: '📁' },
+              { page: 'memories' as const, label: 'Memories', emoji: '✨' },
+              { page: 'chat'     as const, label: 'Chat',     emoji: '💬' },
+            ]).map(item => (
+              <button
+                key={item.page}
+                onClick={() => dispatch({ type: 'SET_PAGE', page: item.page })}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-medium transition-colors ${
+                  state.currentPage === item.page ? 'text-rose-500' : 'text-gray-400'
+                }`}
+              >
+                <span className="text-lg">{item.emoji}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {/* Lightbox */}
       <AnimatePresence>
@@ -132,11 +158,10 @@ function AppContent() {
 
       {/* Incoming call banner */}
       <AnimatePresence>
-        {incomingCallOffer && !activeCall && (
+        {incomingSignal && !activeSignal && (
           <IncomingCallBanner
             key="incoming"
-            callerName={state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'}
-            callType={incomingCallOffer.callType}
+            signal={incomingSignal}
             onAccept={acceptIncoming}
             onDecline={declineIncoming}
           />
@@ -145,12 +170,11 @@ function AppContent() {
 
       {/* Active call screen */}
       <AnimatePresence>
-        {activeCall && (
+        {activeSignal && (
           <CallScreen
-            key={activeCall.id}
-            call={activeCall}
-            incomingOffer={activeCall.initiator !== state.currentUser && incomingCallOffer ? incomingCallOffer.offer : undefined}
-            onEnd={endCall}
+            key={activeSignal.id}
+            signal={activeSignal}
+            onEnd={handleCallEnd}
           />
         )}
       </AnimatePresence>
