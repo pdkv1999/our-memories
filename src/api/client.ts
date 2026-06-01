@@ -79,8 +79,10 @@ export interface CallSignal {
   to_user: string
   call_type: string
   status: 'calling' | 'accepted' | 'declined' | 'ended' | 'missed'
-  sdp_offer:  string | null
-  sdp_answer: string | null
+  sdp_offer:   string | null
+  sdp_answer:  string | null
+  caller_ice:  RTCIceCandidateInit[]
+  callee_ice:  RTCIceCandidateInit[]
   created_at: string
   updated_at: string
 }
@@ -92,6 +94,8 @@ export const signalsApi = {
     post<CallSignal>('/signals', { fromUser, toUser, callType }),
   update: (id: string, fields: { status?: string; sdpOffer?: string; sdpAnswer?: string }) =>
     patch<CallSignal>(`/signals/${id}`, fields),
+  addIce: (id: string, role: 'caller' | 'callee', candidate: RTCIceCandidateInit) =>
+    post<{ ok: boolean }>(`/signals/${id}/ice`, { role, candidate }),
 }
 
 // ─── Health ────────────────────────────────────────────────────────────────

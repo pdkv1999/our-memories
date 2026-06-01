@@ -1,67 +1,33 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Mic, MicOff, Video, VideoOff, PhoneOff,
-  Phone, Volume2, VolumeX, PhoneMissed
-} from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, Volume2, VolumeX, PhoneMissed } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { signalsApi, CallSignal } from '../../api/client'
 import { CallType, CallRecord } from '../../types'
 
-// Free STUN + public TURN (Open Relay) so it works across different networks
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80',      username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443',     username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turns:openrelay.metered.ca:443',    username: 'openrelayproject', credential: 'openrelayproject' },
 ]
-
-// Wait until ICE gathering finishes (or 6 s timeout) then return complete SDP
-function gatherICE(pc: RTCPeerConnection): Promise<RTCSessionDescriptionInit> {
-  return new Promise(resolve => {
-    if (pc.iceGatheringState === 'complete') {
-      resolve(pc.localDescription!)
-      return
-    }
-    const done = () => {
-      if (pc.iceGatheringState === 'complete') {
-        pc.removeEventListener('icegatheringstatechange', done)
-        resolve(pc.localDescription!)
-      }
-    }
-    pc.addEventListener('icegatheringstatechange', done)
-    setTimeout(() => resolve(pc.localDescription!), 6000)
-  })
-}
 
 // ─── Incoming call banner ─────────────────────────────────────────────────
 
-export function IncomingCallBanner({
-  signal, onAccept, onDecline,
-}: {
-  signal: CallSignal
-  onAccept: () => void
-  onDecline: () => void
+export function IncomingCallBanner({ signal, onAccept, onDecline }: {
+  signal: CallSignal; onAccept: () => void; onDecline: () => void
 }) {
   return (
     <motion.div
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: -80, opacity: 0 }}
+      initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -80, opacity: 0 }}
       className="fixed top-20 inset-x-0 z-[500] flex justify-center pointer-events-none px-4"
     >
       <div className="pointer-events-auto bg-white rounded-3xl shadow-2xl border border-gray-100 p-4 flex items-center gap-4 max-w-sm w-full">
         <div className="relative shrink-0">
           <motion.div
-            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
+            animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
             transition={{ repeat: Infinity, duration: 1.5 }}
             className="absolute inset-0 rounded-full bg-green-200"
           />
@@ -71,9 +37,7 @@ export function IncomingCallBanner({
         </div>
         <div className="flex-1">
           <p className="font-bold text-gray-900">{signal.from_user}</p>
-          <p className="text-sm text-gray-400">
-            Incoming {signal.call_type === 'video' ? '📹 video' : '📞 voice'} call…
-          </p>
+          <p className="text-sm text-gray-400">Incoming {signal.call_type === 'video' ? '📹 video' : '📞 voice'} call…</p>
         </div>
         <div className="flex gap-2">
           <button onClick={onDecline} className="w-11 h-11 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 transition-colors">
@@ -91,186 +55,220 @@ export function IncomingCallBanner({
 // ─── Call timer ───────────────────────────────────────────────────────────
 
 function CallTimer() {
-  const [elapsed, setElapsed] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setElapsed(s => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
-  const m = Math.floor(elapsed / 60), s = elapsed % 60
-  return <span className="text-white/70 text-sm tabular-nums">{m}:{String(s).padStart(2, '0')}</span>
+  const [s, setS] = useState(0)
+  useEffect(() => { const t = setInterval(() => setS(n => n + 1), 1000); return () => clearInterval(t) }, [])
+  return <span className="text-white/70 text-sm tabular-nums">{Math.floor(s/60)}:{String(s%60).padStart(2,'0')}</span>
 }
 
 // ─── Active call screen ───────────────────────────────────────────────────
 
-export function CallScreen({
-  signal, onEnd,
-}: {
-  signal: CallSignal
-  onEnd: (duration: number) => void
-}) {
+export function CallScreen({ signal, onEnd }: { signal: CallSignal; onEnd: (dur: number) => void }) {
   const { state } = useApp()
 
-  const [status,       setStatus]       = useState<CallSignal['status']>(signal.status as CallSignal['status'])
-  const [connected,    setConnected]     = useState(false)
-  const [isMuted,      setIsMuted]       = useState(false)
-  const [isCameraOff,  setIsCameraOff]   = useState(false)
-  const [isSpeakerOff, setIsSpeakerOff]  = useState(false)
-  const [showControls, setShowControls]  = useState(true)
-  const [rtcError,     setRtcError]      = useState('')
+  const [connected,    setConnected]    = useState(false)
+  const [isMuted,      setIsMuted]      = useState(false)
+  const [isCameraOff,  setIsCameraOff]  = useState(false)
+  const [speakerOff,   setSpeakerOff]   = useState(false)
+  const [showControls, setShowControls] = useState(true)
+  const [statusText,   setStatusText]   = useState('Connecting…')
+
+  // Use state for streams so effects re-run when they change
+  const [localStream,  setLocalStream]  = useState<MediaStream | null>(null)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
 
   const localVideoRef  = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const remoteAudioRef = useRef<HTMLAudioElement>(null)
   const pcRef          = useRef<RTCPeerConnection | null>(null)
-  const localStreamRef = useRef<MediaStream | null>(null)
-  const startTimeRef   = useRef(Date.now())
+  const startRef       = useRef(Date.now())
   const pollRef        = useRef<ReturnType<typeof setInterval>>()
-  const controlTimer   = useRef<ReturnType<typeof setTimeout>>()
-  const endedRef       = useRef(false)
+  const doneRef        = useRef(false)
+  const processedCallerIce = useRef(0)
+  const processedCalleeIce = useRef(0)
 
-  const isCallee = signal.to_user === state.currentUser
+  const isCallee  = signal.to_user === state.currentUser
+  const myRole    = isCallee ? 'callee' : 'caller'
+  const otherRole = isCallee ? 'caller' : 'callee'
   const otherName = isCallee ? signal.from_user : signal.to_user
-  const isVideo = signal.call_type === 'video'
+  const isVideo   = signal.call_type === 'video'
 
-  // ── Cleanup helper ──────────────────────────────────────────────────────
-  const cleanup = useCallback(() => {
-    clearInterval(pollRef.current)
-    pcRef.current?.close()
-    pcRef.current = null
-    localStreamRef.current?.getTracks().forEach(t => t.stop())
-    localStreamRef.current = null
-  }, [])
-
-  const finish = useCallback((dur?: number) => {
-    if (endedRef.current) return
-    endedRef.current = true
-    cleanup()
-    onEnd(dur ?? Math.floor((Date.now() - startTimeRef.current) / 1000))
-  }, [cleanup, onEnd])
-
-  // ── WebRTC setup ────────────────────────────────────────────────────────
+  // ── Attach local stream to video element ─────────────────────────────
   useEffect(() => {
-    startWebRTC()
-    return cleanup
+    if (!localStream || !localVideoRef.current) return
+    localVideoRef.current.srcObject = localStream
+    localVideoRef.current.play().catch(() => {})
+  }, [localStream])
+
+  // ── Attach remote stream to audio + video elements ───────────────────
+  useEffect(() => {
+    if (!remoteStream) return
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = remoteStream
+      remoteAudioRef.current.muted = speakerOff     // set via DOM property, not React prop
+      remoteAudioRef.current.play().catch(() => {})
+    }
+    if (isVideo && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream
+      remoteVideoRef.current.play().catch(() => {})
+    }
+  }, [remoteStream, isVideo])
+
+  // ── Speaker toggle via DOM property ──────────────────────────────────
+  useEffect(() => {
+    if (remoteAudioRef.current) remoteAudioRef.current.muted = speakerOff
+  }, [speakerOff])
+
+  // ── WebRTC setup ──────────────────────────────────────────────────────
+  useEffect(() => {
+    setup()
+    return () => {
+      clearInterval(pollRef.current)
+      pcRef.current?.close()
+      localStream?.getTracks().forEach(t => t.stop())
+    }
   }, [])
 
-  async function startWebRTC() {
-    // 1. Get local media
-    let stream: MediaStream
+  async function setup() {
+    // 1. Get media
+    let stream: MediaStream | undefined
     try {
       stream = await navigator.mediaDevices.getUserMedia(
-        isVideo ? { video: { facingMode: 'user' }, audio: true } : { audio: true }
+        isVideo ? { video: { facingMode: 'user', width: 1280 }, audio: true } : { audio: true }
       )
     } catch {
-      // Fallback: audio only
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch {
-        setRtcError('Microphone access denied. Please allow mic access and retry.')
-        return
-      }
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch {}
     }
-    localStreamRef.current = stream
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream
-    }
+    if (stream) setLocalStream(stream)
 
-    // 2. Create peer connection
+    // 2. Peer connection
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     pcRef.current = pc
 
-    // Add local tracks
-    stream.getTracks().forEach(t => pc.addTrack(t, stream))
+    stream?.getTracks().forEach(t => pc.addTrack(t, stream!))
 
-    // Handle remote stream → attach to audio/video
+    // Remote track arrives → set remote stream
     pc.ontrack = ({ streams }) => {
-      const remoteStream = streams[0]
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream
-      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream
+      setRemoteStream(streams[0])
       setConnected(true)
+      setStatusText('')
     }
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected')   setConnected(true)
-      if (pc.connectionState === 'failed')      setRtcError('Connection failed. Check your network.')
+      if (pc.connectionState === 'connected')    { setConnected(true); setStatusText('') }
       if (pc.connectionState === 'disconnected') finish()
+      if (pc.connectionState === 'failed')       setStatusText('Connection lost. Check your network.')
+    }
+
+    // Trickle ICE — send each candidate to DB as it arrives
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) {
+        signalsApi.addIce(signal.id, myRole, candidate.toJSON()).catch(() => {})
+      }
     }
 
     if (!isCallee) {
-      // ── CALLER: create offer → store in DB → wait for answer ─────────
+      // ── CALLER ────────────────────────────────────────────────────────
+      setStatusText(`Calling ${otherName}…`)
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
-      const sdp = await gatherICE(pc)
+      // Store offer immediately (don't wait for ICE — we do trickle)
+      await signalsApi.update(signal.id, { sdpOffer: JSON.stringify(pc.localDescription) })
 
-      await signalsApi.update(signal.id, { sdpOffer: JSON.stringify(sdp) })
-
-      // Poll for callee's answer
-      pollRef.current = setInterval(async () => {
-        try {
-          const latest = await signalsApi.getById(signal.id)
-          if (!latest) { finish(); return }
-
-          if (latest.status === 'ended' || latest.status === 'declined' || latest.status === 'missed') {
-            finish(); return
-          }
-          setStatus(latest.status as CallSignal['status'])
-
-          // Got answer — complete handshake
-          if (latest.sdp_answer && pc.remoteDescription === null) {
-            await pc.setRemoteDescription(JSON.parse(latest.sdp_answer))
-          }
-        } catch { /* ignore */ }
-      }, 2000)
+      // Poll for answer + callee ICE
+      pollRef.current = setInterval(() => pollForAnswer(pc), 1000)
 
     } else {
-      // ── CALLEE: wait for offer → create answer → store in DB ─────────
-      // Poll until sdp_offer appears (caller may not have stored it yet)
-      const getOffer = async (): Promise<string> => {
-        for (let i = 0; i < 15; i++) {
-          const latest = await signalsApi.getById(signal.id)
-          if (latest?.sdp_offer) return latest.sdp_offer
-          await new Promise(r => setTimeout(r, 1000))
-        }
-        throw new Error('Offer not received in time')
-      }
-
-      try {
-        const offerJSON = await getOffer()
-        await pc.setRemoteDescription(JSON.parse(offerJSON))
-
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        const sdp = await gatherICE(pc)
-
-        await signalsApi.update(signal.id, { sdpAnswer: JSON.stringify(sdp) })
-      } catch (err) {
-        setRtcError('Could not connect. The caller may have poor signal.')
-        return
-      }
-
-      // Poll for status changes (ended by caller, etc.)
-      pollRef.current = setInterval(async () => {
-        try {
-          const latest = await signalsApi.getById(signal.id)
-          if (!latest) { finish(); return }
-          const s = latest.status as CallSignal['status']
-          setStatus(s)
-          if (s === 'ended' || s === 'declined' || s === 'missed') finish()
-        } catch { /* ignore */ }
-      }, 2000)
+      // ── CALLEE ────────────────────────────────────────────────────────
+      setStatusText('Connecting…')
+      // Poll for offer from caller
+      pollRef.current = setInterval(() => pollForOffer(pc), 1000)
     }
   }
 
-  // Auto-hide controls when connected
+  async function pollForOffer(pc: RTCPeerConnection) {
+    try {
+      const latest = await signalsApi.getById(signal.id)
+      if (!latest) return finish()
+      if (latest.status === 'ended' || latest.status === 'declined' || latest.status === 'missed') return finish()
+
+      // Got the offer — create answer
+      if (latest.sdp_offer && pc.remoteDescription === null) {
+        clearInterval(pollRef.current)
+        await pc.setRemoteDescription(JSON.parse(latest.sdp_offer))
+
+        // Apply any caller ICE already in DB
+        for (const c of latest.caller_ice ?? []) {
+          await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})
+        }
+        processedCallerIce.current = (latest.caller_ice ?? []).length
+
+        const answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        await signalsApi.update(signal.id, { sdpAnswer: JSON.stringify(pc.localDescription) })
+
+        // Now poll for new caller ICE candidates
+        pollRef.current = setInterval(() => pollIceCandidates(pc, latest), 1000)
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function pollForAnswer(pc: RTCPeerConnection) {
+    try {
+      const latest = await signalsApi.getById(signal.id)
+      if (!latest) return finish()
+      if (latest.status === 'ended' || latest.status === 'declined' || latest.status === 'missed') return finish()
+
+      // Got the answer
+      if (latest.sdp_answer && pc.remoteDescription === null) {
+        await pc.setRemoteDescription(JSON.parse(latest.sdp_answer))
+      }
+
+      // Apply new callee ICE candidates
+      const calleeIce = latest.callee_ice ?? []
+      for (let i = processedCalleeIce.current; i < calleeIce.length; i++) {
+        await pc.addIceCandidate(new RTCIceCandidate(calleeIce[i])).catch(() => {})
+      }
+      processedCalleeIce.current = calleeIce.length
+    } catch { /* ignore */ }
+  }
+
+  async function pollIceCandidates(pc: RTCPeerConnection, _initial: CallSignal) {
+    try {
+      const latest = await signalsApi.getById(signal.id)
+      if (!latest) return finish()
+      if (latest.status === 'ended' || latest.status === 'declined' || latest.status === 'missed') return finish()
+
+      // Apply new caller ICE candidates
+      const callerIce = latest.caller_ice ?? []
+      for (let i = processedCallerIce.current; i < callerIce.length; i++) {
+        await pc.addIceCandidate(new RTCIceCandidate(callerIce[i])).catch(() => {})
+      }
+      processedCallerIce.current = callerIce.length
+    } catch { /* ignore */ }
+  }
+
+  function finish(dur?: number) {
+    if (doneRef.current) return
+    doneRef.current = true
+    clearInterval(pollRef.current)
+    pcRef.current?.close()
+    onEnd(dur ?? Math.floor((Date.now() - startRef.current) / 1000))
+  }
+
+  async function handleEnd() {
+    await signalsApi.update(signal.id, { status: 'ended' }).catch(() => {})
+    finish()
+  }
+
+  // Auto-hide controls
   useEffect(() => {
-    clearTimeout(controlTimer.current)
-    if (connected && showControls) {
-      controlTimer.current = setTimeout(() => setShowControls(false), 4000)
-    }
-    return () => clearTimeout(controlTimer.current)
+    if (!connected || !showControls) return
+    const t = setTimeout(() => setShowControls(false), 4000)
+    return () => clearTimeout(t)
   }, [connected, showControls])
 
-  // Auto-end if nobody answers in 45 s
+  // Auto-miss after 45 s unanswered
   useEffect(() => {
     if (connected) return
     const t = setTimeout(async () => {
@@ -280,111 +278,74 @@ export function CallScreen({
     return () => clearTimeout(t)
   }, [connected])
 
-  async function handleEnd() {
-    await signalsApi.update(signal.id, { status: 'ended' }).catch(() => {})
-    finish()
-  }
-
   function toggleMute() {
-    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !t.enabled })
+    localStream?.getAudioTracks().forEach(t => { t.enabled = isMuted })
     setIsMuted(m => !m)
   }
   function toggleCamera() {
-    localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = !t.enabled })
+    localStream?.getVideoTracks().forEach(t => { t.enabled = isCameraOff })
     setIsCameraOff(c => !c)
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[600] bg-gray-950 flex flex-col"
-      onClick={() => connected && setShowControls(s => !s)}
-    >
-      {/* Hidden audio element for remote audio (always needed) */}
-      <audio ref={remoteAudioRef} autoPlay playsInline muted={isSpeakerOff} className="hidden" />
+    <div className="fixed inset-0 z-[600] bg-gray-950" onClick={() => connected && setShowControls(s => !s)}>
 
-      {/* Remote video (video calls) */}
-      {isVideo && (
-        <video
-          ref={remoteVideoRef}
-          autoPlay playsInline
-          className={`absolute inset-0 w-full h-full object-cover ${connected ? 'opacity-100' : 'opacity-0'}`}
-        />
-      )}
+      {/* Remote audio — always in DOM, muted handled via DOM property */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
 
-      {/* Background avatar (shown when not yet connected) */}
-      {(!connected || !isVideo) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-950">
-          <div className="relative">
-            {!connected && [1, 2, 3].map(i => (
-              <motion.div
-                key={i}
-                animate={{ scale: [1, 1 + i * 0.18], opacity: [0.3, 0] }}
-                transition={{ repeat: Infinity, duration: 2, delay: i * 0.5, ease: 'easeOut' }}
-                className="absolute inset-0 rounded-full bg-rose-500/20"
-              />
-            ))}
-            <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-violet-500 flex items-center justify-center text-white text-5xl font-bold shadow-2xl">
-              {otherName[0]}
-            </div>
+      {/* Remote video (full screen background for video calls) */}
+      <video
+        ref={remoteVideoRef}
+        autoPlay playsInline
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${connected && isVideo && remoteStream ? 'opacity-100' : 'opacity-0'}`}
+      />
+
+      {/* Avatar / status background */}
+      <div className={`absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-gray-950 transition-opacity duration-500 ${connected && isVideo && remoteStream ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="relative">
+          {!connected && [1,2,3].map(i => (
+            <motion.div key={i}
+              animate={{ scale: [1, 1 + i * 0.2], opacity: [0.3, 0] }}
+              transition={{ repeat: Infinity, duration: 2, delay: i * 0.6 }}
+              className="absolute inset-0 rounded-full bg-rose-500/20"
+            />
+          ))}
+          <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-rose-400 to-violet-500 flex items-center justify-center text-white text-6xl font-bold shadow-2xl">
+            {otherName[0]}
           </div>
-          <h2 className="text-white text-2xl font-bold mt-6">{otherName}</h2>
-          {connected
-            ? <CallTimer />
-            : rtcError
-              ? <p className="text-red-400 text-sm mt-2 px-6 text-center">{rtcError}</p>
-              : (
-                <motion.p
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className="text-white/50 text-sm mt-2"
-                >
-                  {isCallee ? 'Connecting…' : `Calling ${otherName}…`}
-                </motion.p>
-              )
-          }
+        </div>
+        <h2 className="text-white text-3xl font-bold mt-8">{otherName}</h2>
+        {connected
+          ? <CallTimer />
+          : <motion.p animate={{ opacity: [0.4,1,0.4] }} transition={{ repeat: Infinity, duration: 1.5 }}
+              className="text-white/50 text-sm mt-3">{statusText}</motion.p>
+        }
+      </div>
+
+      {/* Local video PIP */}
+      {isVideo && (
+        <div className="absolute top-20 right-4 w-28 h-44 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-gray-900">
+          <video ref={localVideoRef} autoPlay playsInline muted
+            className={`w-full h-full object-cover scale-x-[-1] ${isCameraOff ? 'invisible' : ''}`}
+          />
+          {isCameraOff && <div className="absolute inset-0 flex items-center justify-center"><VideoOff size={22} className="text-white/40" /></div>}
         </div>
       )}
 
-      {/* Connected + video: show timer overlay */}
-      {connected && isVideo && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2">
+      {/* Connected timer over video */}
+      {connected && isVideo && remoteStream && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-sm px-4 py-1.5 rounded-full">
           <CallTimer />
         </div>
       )}
 
-      {/* Local camera PIP */}
-      {isVideo && (
-        <div className="absolute top-16 right-4 w-28 h-40 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl z-10">
-          <video
-            ref={localVideoRef}
-            autoPlay playsInline muted
-            className={`w-full h-full object-cover scale-x-[-1] ${isCameraOff ? 'invisible' : ''}`}
-          />
-          {isCameraOff && (
-            <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-              <VideoOff size={20} className="text-white/40" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Top info overlay */}
+      {/* Top info */}
       <AnimatePresence>
         {(showControls || !connected) && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute top-0 inset-x-0 bg-gradient-to-b from-black/70 to-transparent pt-10 pb-10 px-4"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-white text-xl font-bold">{otherName}</h2>
-                {connected
-                  ? <CallTimer />
-                  : <p className="text-white/60 text-sm">{isCallee ? 'Incoming call' : 'Calling…'}</p>
-                }
-              </div>
-              <span className="text-white/40 text-xs">{isVideo ? '📹 Video' : '📞 Voice'}</span>
-            </div>
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            className="absolute top-0 inset-x-0 bg-gradient-to-b from-black/70 to-transparent pt-12 pb-12 px-5">
+            <p className="text-white text-xl font-bold">{otherName}</p>
+            <p className="text-white/60 text-sm mt-0.5">{connected ? '' : statusText}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -392,41 +353,46 @@ export function CallScreen({
       {/* Controls */}
       <AnimatePresence>
         {(showControls || !connected) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-16 pb-12"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-center gap-5">
-              <div className="flex flex-col items-center gap-1">
-                <button onClick={toggleMute} className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-colors ${isMuted ? 'bg-red-500' : 'bg-white/20 hover:bg-white/30'}`}>
-                  {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:20 }}
+            className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-6 pt-20 pb-14"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-end justify-center gap-6">
+
+              <div className="flex flex-col items-center gap-2">
+                <button onClick={toggleMute}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all ${isMuted ? 'bg-red-500 scale-95' : 'bg-white/20 hover:bg-white/30'}`}>
+                  {isMuted ? <MicOff size={22}/> : <Mic size={22}/>}
                 </button>
                 <span className="text-white/50 text-xs">{isMuted ? 'Unmute' : 'Mute'}</span>
               </div>
 
-              {isVideo && (
-                <div className="flex flex-col items-center gap-1">
-                  <button onClick={toggleCamera} className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-colors ${isCameraOff ? 'bg-gray-600' : 'bg-white/20 hover:bg-white/30'}`}>
-                    {isCameraOff ? <VideoOff size={22} /> : <Video size={22} />}
-                  </button>
-                  <span className="text-white/50 text-xs">Camera</span>
-                </div>
-              )}
-
-              <div className="flex flex-col items-center gap-1">
-                <button onClick={() => setIsSpeakerOff(s => !s)} className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-colors ${isSpeakerOff ? 'bg-gray-600' : 'bg-white/20 hover:bg-white/30'}`}>
-                  {isSpeakerOff ? <VolumeX size={22} /> : <Volume2 size={22} />}
-                </button>
-                <span className="text-white/50 text-xs">Speaker</span>
-              </div>
-
-              <div className="flex flex-col items-center gap-1">
-                <button onClick={handleEnd} className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg transition-colors">
-                  <PhoneOff size={26} />
+              {/* End call — centre, larger */}
+              <div className="flex flex-col items-center gap-2">
+                <button onClick={handleEnd}
+                  className="w-18 h-18 w-[4.5rem] h-[4.5rem] rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-xl transition-all active:scale-95">
+                  <PhoneOff size={28}/>
                 </button>
                 <span className="text-white/50 text-xs">End</span>
               </div>
+
+              {isVideo ? (
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={toggleCamera}
+                    className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all ${isCameraOff ? 'bg-gray-600' : 'bg-white/20 hover:bg-white/30'}`}>
+                    {isCameraOff ? <VideoOff size={22}/> : <Video size={22}/>}
+                  </button>
+                  <span className="text-white/50 text-xs">Camera</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={() => setSpeakerOff(s => !s)}
+                    className={`w-14 h-14 rounded-full flex items-center justify-center text-white transition-all ${speakerOff ? 'bg-gray-600' : 'bg-white/20 hover:bg-white/30'}`}>
+                    {speakerOff ? <VolumeX size={22}/> : <Volume2 size={22}/>}
+                  </button>
+                  <span className="text-white/50 text-xs">Speaker</span>
+                </div>
+              )}
+
             </div>
           </motion.div>
         )}
@@ -438,23 +404,23 @@ export function CallScreen({
 // ─── Call history item ────────────────────────────────────────────────────
 
 export function CallHistoryItem({ record }: { record: CallRecord }) {
-  const isMissed = record.status === 'missed', isDeclined = record.status === 'declined'
-  const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+  const missed = record.status === 'missed', declined = record.status === 'declined'
+  const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`
   return (
     <div className="flex items-center gap-3 py-2.5 px-1">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isMissed || isDeclined ? 'bg-red-50 text-red-400' : 'bg-green-50 text-green-500'}`}>
-        {record.type === 'video' ? <Video size={18} /> : <Phone size={18} />}
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${missed||declined ? 'bg-red-50 text-red-400':'bg-green-50 text-green-500'}`}>
+        {record.type === 'video' ? <Video size={18}/> : <Phone size={18}/>}
       </div>
       <div className="flex-1">
         <p className="text-sm font-medium text-gray-800 capitalize">
-          {record.type} call {isMissed ? '(missed)' : isDeclined ? '(declined)' : ''}
+          {record.type} call {missed ? '(missed)' : declined ? '(declined)' : ''}
         </p>
         <p className="text-xs text-gray-400">
           {new Date(record.startedAt).toLocaleDateString()} · {record.initiator}
           {record.duration > 0 && ` · ${fmt(record.duration)}`}
         </p>
       </div>
-      {(isMissed || isDeclined) && <PhoneMissed size={16} className="text-red-300" />}
+      {(missed||declined) && <PhoneMissed size={16} className="text-red-300"/>}
     </div>
   )
 }
