@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Send, Smile, Mic, MicOff, Phone, Video,
-  X, Image as ImageIcon, ChevronDown, Search, Heart, ArrowLeft, Info
+  X, Image as ImageIcon, ChevronDown, Search, Heart
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import MessageBubble from './MessageBubble'
@@ -247,23 +247,18 @@ export default function ChatPage({ onStartCall, onBack }: { onStartCall: (type: 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
   return (
-    <div className="flex flex-col h-dvh bg-rose-25 page-enter">
-      {/* Header */}
-      <div className="glass border-b border-rose-100 px-4 py-3 flex items-center gap-3 shrink-0 pt-safe">
-        {onBack && (
-          <button onClick={onBack} className="w-8 h-8 rounded-full hover:bg-rose-50 flex items-center justify-center text-gray-500 hover:text-rose-500 transition-colors">
-            <ArrowLeft size={18} />
-          </button>
-        )}
+    <div className="flex flex-col bg-rose-25 page-enter" style={{ height: '100dvh', paddingTop: '4rem' }}>
+      {/* Sub-header: partner info + call buttons */}
+      <div className="bg-white border-b border-rose-100 px-4 py-2.5 flex items-center gap-3 shrink-0">
         <div className="relative">
-          <div className="w-10 h-10 rounded-full bg-violet-400 flex items-center justify-center text-white font-bold">
+          <div className="w-9 h-9 rounded-full bg-violet-400 flex items-center justify-center text-white font-bold text-sm">
             {otherUser[0]}
           </div>
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
+          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white" />
         </div>
         <div className="flex-1">
-          <p className="font-semibold text-gray-900">{otherUser}</p>
-          <p className="text-xs text-green-500">Online · tap to call</p>
+          <p className="font-semibold text-gray-900 text-sm">{otherUser}</p>
+          <p className="text-xs text-green-500">Online</p>
         </div>
         <div className="flex items-center gap-1">
           <button

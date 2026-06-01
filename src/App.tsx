@@ -108,8 +108,11 @@ function AppContent() {
       <Navbar />
 
       {isChat ? (
-        <div className="pt-0">
-          <ChatPage onStartCall={startCall} />
+        <div>
+          <ChatPage
+            onStartCall={startCall}
+            onBack={() => dispatch({ type: 'SET_PAGE', page: 'gallery' })}
+          />
         </div>
       ) : (
         <main className="flex-1 max-w-7xl mx-auto w-full px-4 pt-24 pb-10">
@@ -121,30 +124,6 @@ function AppContent() {
         </main>
       )}
 
-      {/* Mobile bottom nav on chat page */}
-      {isChat && (
-        <nav className="fixed bottom-0 inset-x-0 z-50 glass border-t border-rose-100 safe-area-bottom">
-          <div className="flex">
-            {([
-              { page: 'gallery'  as const, label: 'Gallery',  emoji: '🖼️' },
-              { page: 'albums'   as const, label: 'Albums',   emoji: '📁' },
-              { page: 'memories' as const, label: 'Memories', emoji: '✨' },
-              { page: 'chat'     as const, label: 'Chat',     emoji: '💬' },
-            ]).map(item => (
-              <button
-                key={item.page}
-                onClick={() => dispatch({ type: 'SET_PAGE', page: item.page })}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-medium transition-colors ${
-                  state.currentPage === item.page ? 'text-rose-500' : 'text-gray-400'
-                }`}
-              >
-                <span className="text-lg">{item.emoji}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </nav>
-      )}
 
       {/* Lightbox */}
       <AnimatePresence>

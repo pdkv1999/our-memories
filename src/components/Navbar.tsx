@@ -20,10 +20,8 @@ export default function Navbar() {
     { page: 'chat',     label: 'Chat',     icon: <MessageCircleHeart size={18} />, badge: state.unreadCount },
   ]
 
-  const isChat = state.currentPage === 'chat'
-
   return (
-    <nav className={`fixed top-0 inset-x-0 z-50 glass border-b border-rose-100 ${isChat ? 'hidden' : ''}`}>
+    <nav className="fixed top-0 inset-x-0 z-50 glass border-b border-rose-100">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
 
         {/* Logo */}
