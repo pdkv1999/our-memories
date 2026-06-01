@@ -1,28 +1,31 @@
 import React, { useState } from 'react'
-import { Heart, GalleryHorizontal, BookMarked, Sparkles, Upload, Search, X, Menu, ChevronDown, MessageCircleHeart } from 'lucide-react'
+import { Heart, GalleryHorizontal, BookMarked, Sparkles, Upload, Search, X, Menu, LogOut, MessageCircleHeart } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { Page } from '../types'
 
+function avatarColor(name: string) {
+  const palette = ['bg-rose-400', 'bg-violet-400', 'bg-sky-400', 'bg-amber-400', 'bg-emerald-400']
+  return palette[name.charCodeAt(0) % palette.length]
+}
+
 export default function Navbar() {
-  const { state, dispatch, apiAvailable } = useApp()
+  const { state, dispatch, logout, apiAvailable } = useApp()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const navItems: { page: Page; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { page: 'gallery', label: 'Gallery', icon: <GalleryHorizontal size={18} /> },
-    { page: 'albums', label: 'Albums', icon: <BookMarked size={18} /> },
+    { page: 'gallery',  label: 'Gallery',  icon: <GalleryHorizontal size={18} /> },
+    { page: 'albums',   label: 'Albums',   icon: <BookMarked size={18} /> },
     { page: 'memories', label: 'Memories', icon: <Sparkles size={18} /> },
-    { page: 'chat', label: 'Chat', icon: <MessageCircleHeart size={18} />, badge: state.unreadCount },
+    { page: 'chat',     label: 'Chat',     icon: <MessageCircleHeart size={18} />, badge: state.unreadCount },
   ]
 
-  const users = ['Dileep', 'Siri']
-
-  if (state.currentPage === 'chat') return null
+  const isChat = state.currentPage === 'chat'
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-50 glass border-b border-rose-100">
+    <nav className={`fixed top-0 inset-x-0 z-50 glass border-b border-rose-100 ${isChat ? 'hidden' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
+
         {/* Logo */}
         <button
           onClick={() => dispatch({ type: 'SET_PAGE', page: 'gallery' })}
@@ -81,44 +84,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* User switcher */}
-        <div className="relative">
-          <button
-            onClick={() => setUserMenuOpen(o => !o)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-rose-50 transition-colors"
-          >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-              state.currentUser === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
-            }`}>
-              {state.currentUser[0]}
-            </div>
-            <span className="hidden sm:block">{state.currentUser}</span>
-            <ChevronDown size={14} className="text-gray-400" />
-          </button>
-          {userMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl p-2 w-44 animate-scale-in">
-              <p className="text-xs text-gray-400 font-medium px-3 py-1 mb-1">Switch user</p>
-              {users.map(u => (
-                <button
-                  key={u}
-                  onClick={() => { dispatch({ type: 'SET_USER', user: u }); setUserMenuOpen(false) }}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                    state.currentUser === u ? 'bg-rose-50 text-rose-600 font-medium' : 'hover:bg-gray-50 text-gray-700'
-                  }`}
-                >
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                    u === 'Dileep' ? 'bg-rose-400' : 'bg-violet-400'
-                  }`}>
-                    {u[0]}
-                  </div>
-                  {u}
-                  {state.currentUser === u && <span className="ml-auto text-rose-400">✓</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* DB status dot */}
         <div
           title={apiAvailable ? 'Database connected' : 'Offline — changes saved locally'}
@@ -134,7 +99,22 @@ export default function Navbar() {
           <span className="hidden sm:block">Upload</span>
         </button>
 
-        {/* Mobile menu */}
+        {/* User avatar + logout */}
+        <div className="flex items-center gap-2">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${avatarColor(state.currentUser)}`}>
+            {state.currentUser[0]?.toUpperCase()}
+          </div>
+          <span className="hidden sm:block text-sm font-medium text-gray-700">{state.currentUser}</span>
+          <button
+            onClick={logout}
+            title="Sign out"
+            className="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+
+        {/* Mobile menu toggle */}
         <button onClick={() => setMenuOpen(o => !o)} className="md:hidden btn-ghost p-2">
           <Menu size={20} />
         </button>
@@ -177,9 +157,7 @@ export default function Navbar() {
         </div>
       )}
 
-      {(userMenuOpen || menuOpen) && (
-        <div className="fixed inset-0 z-[-1]" onClick={() => { setUserMenuOpen(false); setMenuOpen(false) }} />
-      )}
+      {menuOpen && <div className="fixed inset-0 z-[-1]" onClick={() => setMenuOpen(false)} />}
     </nav>
   )
 }

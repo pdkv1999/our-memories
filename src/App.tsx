@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { AppProvider, useApp } from './context/AppContext'
 import Navbar from './components/Navbar'
+import LoginPage from './components/LoginPage'
 import MasonryGrid from './components/MasonryGrid'
 import AlbumsPage from './components/AlbumsPage'
 import MemoriesPage from './components/MemoriesPage'
@@ -28,7 +29,11 @@ function GalleryPage() {
 }
 
 function AppContent() {
-  const { state, dispatch, saveCallRecord } = useApp()
+  const { state, dispatch, login, saveCallRecord } = useApp()
+
+  if (!state.isLoggedIn) {
+    return <LoginPage onLogin={login} />
+  }
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null)
   const [incomingCallOffer, setIncomingCallOffer] = useState<{ offer: RTCSessionDescriptionInit; callId: string; callType: CallType } | null>(null)
 
@@ -58,7 +63,7 @@ function AppContent() {
 
   function acceptIncoming() {
     if (!incomingCallOffer) return
-    const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
+    const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner'
     const call: ActiveCall = {
       id: incomingCallOffer.callId,
       type: incomingCallOffer.callType,

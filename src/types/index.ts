@@ -99,6 +99,11 @@ export type ViewMode = 'masonry' | 'grid' | 'timeline' | 'album' | 'calendar'
 export type Page = 'gallery' | 'albums' | 'memories' | 'chat'
 export type SortOrder = 'newest' | 'oldest' | 'most-liked'
 
+export interface UserSession {
+  name: string
+  email: string
+}
+
 export interface AppState {
   photos: Photo[]
   albums: Album[]
@@ -111,6 +116,8 @@ export interface AppState {
   lightboxPhotoId: string | null
   isUploadOpen: boolean
   currentUser: string
+  userEmail: string
+  isLoggedIn: boolean
   searchQuery: string
   sortOrder: SortOrder
   selectedPhotoIds: string[]

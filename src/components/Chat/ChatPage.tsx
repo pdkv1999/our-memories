@@ -127,7 +127,7 @@ export default function ChatPage({ onStartCall, onBack }: { onStartCall: (type: 
   const recordTimerRef = useRef<ReturnType<typeof setInterval>>()
   const recordStartRef = useRef(0)
 
-  const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
+  const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Your partner'
 
   // Auto-scroll to bottom on new message
   useEffect(() => {

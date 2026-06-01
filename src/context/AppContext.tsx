@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react'
 import {
   AppState, Photo, Album, Comment, UploadItem, ViewMode, Page, SortOrder,
-  Message, MessageReaction, CallRecord, ActiveCall, CallType
+  Message, MessageReaction, CallRecord, ActiveCall, CallType, UserSession
 } from '../types'
 import { compressImage, isSupported } from '../utils/compression'
 import { saveState, loadState } from '../utils/storage'
@@ -50,6 +50,16 @@ type Action =
   | { type: 'SET_ACTIVE_CALL'; call: ActiveCall | null }
   | { type: 'UPDATE_CALL_STATUS'; status: ActiveCall['status'] }
   | { type: 'ADD_CALL_RECORD'; record: CallRecord }
+  | { type: 'LOGIN'; name: string; email: string }
+  | { type: 'LOGOUT' }
+
+const SESSION_KEY = 'love-life-session'
+
+function loadSession(): UserSession | null {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) ?? 'null') } catch { return null }
+}
+function saveSession(s: UserSession) { localStorage.setItem(SESSION_KEY, JSON.stringify(s)) }
+function clearSession() { localStorage.removeItem(SESSION_KEY) }
 
 const defaultState: AppState = {
   photos: [],
@@ -62,7 +72,9 @@ const defaultState: AppState = {
   activeAlbumId: null,
   lightboxPhotoId: null,
   isUploadOpen: false,
-  currentUser: 'Dileep',
+  currentUser: '',
+  userEmail: '',
+  isLoggedIn: false,
   searchQuery: '',
   sortOrder: 'newest',
   selectedPhotoIds: [],
@@ -306,6 +318,12 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_CALL_RECORD':
       return { ...state, callRecords: [action.record, ...state.callRecords] }
 
+    case 'LOGIN':
+      return { ...state, currentUser: action.name, userEmail: action.email, isLoggedIn: true }
+
+    case 'LOGOUT':
+      return { ...defaultState, isLoggedIn: false }
+
     default:
       return state
   }
@@ -315,6 +333,8 @@ interface AppContextValue {
   state: AppState
   dispatch: React.Dispatch<Action>
   apiAvailable: boolean
+  login: (name: string, email: string) => void
+  logout: () => void
   uploadFiles: (files: File[]) => Promise<void>
   deletePhotos: (ids: string[]) => void
   likePhoto: (id: string) => void
@@ -336,9 +356,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [apiAvailable, setApiAvailable] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  // ── Bootstrap: try API first, fall back to localStorage ──────────────────
+  // ── Bootstrap: restore session + load data ───────────────────────────────
   useEffect(() => {
     async function boot() {
+      // Restore login session before loading data
+      const session = loadSession()
+      if (session) {
+        dispatch({ type: 'LOGIN', name: session.name, email: session.email })
+      }
+
       const ok = await checkHealth()
       setApiAvailable(ok)
 
@@ -350,13 +376,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             messagesApi.list(),
             callsApi.list(),
           ])
-          // Normalise API response to client Photo shape
           const normalised = photos.map((p: any) => ({
-            ...p,
-            comments: p.comments ?? [],
-            albumIds: p.albumIds ?? [],
+            ...p, comments: p.comments ?? [], albumIds: p.albumIds ?? [],
           }))
-          const savedUser = loadState()?.currentUser ?? 'Dileep'
           const savedSort = loadState()?.sortOrder ?? 'newest'
           dispatch({
             type: 'LOAD_STATE', state: {
@@ -364,7 +386,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               albums: albums.map((a: any) => ({ ...a, photoIds: a.photoIds ?? [] })),
               messages: messages.map((m: any) => ({ ...m, read: m.isRead, reactions: m.reactions ?? [] })),
               callRecords: calls,
-              currentUser: savedUser,
               sortOrder: savedSort,
             },
           })
@@ -383,7 +404,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             albums:      saved.albums ?? [],
             messages:    saved.messages ?? [],
             callRecords: saved.callRecords ?? [],
-            currentUser: saved.currentUser ?? 'Dileep',
             sortOrder:   saved.sortOrder ?? 'newest',
           },
         })
@@ -600,6 +620,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.currentUser, apiAvailable])
 
+  const login = useCallback((name: string, email: string) => {
+    saveSession({ name, email })
+    dispatch({ type: 'LOGIN', name, email })
+  }, [])
+
+  const logout = useCallback(() => {
+    clearSession()
+    dispatch({ type: 'LOGOUT' })
+  }, [])
+
   const saveCallRecord = useCallback(async (record: CallRecord) => {
     dispatch({ type: 'ADD_CALL_RECORD', record })
     if (apiAvailable) {
@@ -609,7 +639,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      state, dispatch, apiAvailable, uploadFiles, deletePhotos, likePhoto,
+      state, dispatch, apiAvailable, login, logout,
+      uploadFiles, deletePhotos, likePhoto,
       addComment, deleteComment, createAlbum, getFilteredPhotos,
       getAlbumPhotos, navigatePhoto, sendMessage, reactToMessage, saveCallRecord,
     }}>

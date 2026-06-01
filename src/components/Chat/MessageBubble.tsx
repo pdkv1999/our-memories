@@ -77,7 +77,7 @@ export default function MessageBubble({ message, isOwn, replyMessage, onReply }:
     setShowReactions(true)
   }
 
-  const otherUser = state.currentUser === 'Dileep' ? 'Siri' : 'Dileep'
+  const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner'
   const isEmojiOnly = message.type === 'text' && /^(\p{Emoji}\s*)+$/u.test(message.content.trim()) && message.content.length <= 8
 
   return (
