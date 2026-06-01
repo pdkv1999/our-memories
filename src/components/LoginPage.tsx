@@ -1,49 +1,44 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, Mail, User, ArrowRight, Lock, AlertCircle } from 'lucide-react'
+import { Heart, Mail, ArrowRight, Lock, AlertCircle } from 'lucide-react'
 
-// Only these two emails are allowed into the app
-const ALLOWED_EMAILS = [
-  'pdkv1999@gmail.com',
-  'potturibhavanisireesha@gmail.com',
-]
+// Email → name mapping — only these two can enter
+const EMAIL_MAP: Record<string, string> = {
+  'pdkv1999@gmail.com':                'Dileep',
+  'potturibhavanisireesha@gmail.com':  'Siri',
+}
 
 interface Props {
   onLogin: (name: string, email: string) => void
 }
 
 export default function LoginPage({ onLogin }: Props) {
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [focused, setFocused] = useState<'name' | 'email' | null>(null)
+  const [focused, setFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const trimmedEmail = email.trim().toLowerCase()
+  const resolvedName = EMAIL_MAP[trimmedEmail] ?? null
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmedName  = name.trim()
-    const trimmedEmail = email.trim().toLowerCase()
-    if (!trimmedName || !trimmedEmail) return
-
-    // Only the two of us are allowed
-    if (!ALLOWED_EMAILS.includes(trimmedEmail)) {
-      setError('This email is not recognised. This space is private — only the two of us can enter.')
+    if (!resolvedName) {
+      setError('This space is private — only the two of us can enter.')
       return
     }
-
     setError('')
     setLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    onLogin(trimmedName, trimmedEmail)
+    await new Promise(r => setTimeout(r, 700))
+    onLogin(resolvedName, trimmedEmail)
   }
 
-  function handleChange(field: 'name' | 'email', value: string) {
+  function handleChange(value: string) {
     setError('')
-    if (field === 'name') setName(value)
-    else setEmail(value)
+    setEmail(value)
   }
 
-  const ready = name.trim().length > 0 && email.trim().includes('@')
+  const ready = resolvedName !== null
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-rose-50 via-pink-50 to-rose-100 relative overflow-hidden px-4">
@@ -89,45 +84,41 @@ export default function LoginPage({ onLogin }: Props) {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 ml-1">Your name</label>
-              <div className={`flex items-center gap-3 bg-white border-2 rounded-2xl px-4 py-3.5 transition-all duration-200 ${
-                focused === 'name' ? 'border-rose-400 shadow-sm shadow-rose-100' : 'border-gray-100'
-              }`}>
-                <User size={17} className={focused === 'name' ? 'text-rose-400' : 'text-gray-300'} />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => handleChange('name', e.target.value)}
-                  onFocus={() => setFocused('name')}
-                  onBlur={() => setFocused(null)}
-                  placeholder="Dileep or Siri"
-                  className="flex-1 outline-none text-sm bg-transparent text-gray-800 placeholder-gray-300"
-                  autoComplete="name"
-                  autoFocus
-                />
-              </div>
-            </div>
-
             {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5 ml-1">Email address</label>
               <div className={`flex items-center gap-3 bg-white border-2 rounded-2xl px-4 py-3.5 transition-all duration-200 ${
-                error ? 'border-red-300' : focused === 'email' ? 'border-rose-400 shadow-sm shadow-rose-100' : 'border-gray-100'
+                error ? 'border-red-300' : focused ? 'border-rose-400 shadow-sm shadow-rose-100' : 'border-gray-100'
               }`}>
-                <Mail size={17} className={error ? 'text-red-400' : focused === 'email' ? 'text-rose-400' : 'text-gray-300'} />
+                <Mail size={17} className={error ? 'text-red-400' : focused ? 'text-rose-400' : 'text-gray-300'} />
                 <input
                   type="email"
                   value={email}
-                  onChange={e => handleChange('email', e.target.value)}
-                  onFocus={() => setFocused('email')}
-                  onBlur={() => setFocused(null)}
-                  placeholder="you@example.com"
+                  onChange={e => handleChange(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  placeholder="Enter your email"
                   className="flex-1 outline-none text-sm bg-transparent text-gray-800 placeholder-gray-300"
                   autoComplete="email"
+                  autoFocus
                 />
               </div>
+
+              {/* Recognised name greeting */}
+              <AnimatePresence>
+                {resolvedName && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="flex items-center gap-2 mt-2 px-1"
+                  >
+                    <span className="text-sm text-rose-500 font-medium">
+                      Welcome back, {resolvedName} 💕
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Error message */}
               <AnimatePresence>
