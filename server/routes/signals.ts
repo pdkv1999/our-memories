@@ -1,23 +1,26 @@
 import { Router } from 'express'
-import { db } from '../db.js'
-import { pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core'
-import { eq, and, or, desc } from 'drizzle-orm'
 import { neon } from '@neondatabase/serverless'
 
 const router = Router()
 const sql = neon(process.env.DATABASE_URL!)
 
-// GET /api/signals?user=Siri  — fetch active/pending signal for this user
+// GET /api/signals?user=X  — active signal for this user (any role)
+// GET /api/signals?id=UUID — specific signal by id
 router.get('/', async (req, res) => {
   try {
-    const { user } = req.query as { user: string }
-    if (!user) return res.status(400).json({ error: 'user required' })
+    const { user, id } = req.query as { user?: string; id?: string }
 
-    // Find most recent signal involving this user that isn't ended/missed/declined
+    if (id) {
+      const rows = await sql`SELECT * FROM call_signals WHERE id = ${id} LIMIT 1`
+      return res.json(rows[0] ?? null)
+    }
+
+    if (!user) return res.status(400).json({ error: 'user or id required' })
+
     const rows = await sql`
       SELECT * FROM call_signals
       WHERE (from_user = ${user} OR to_user = ${user})
-        AND status NOT IN ('ended', 'missed', 'declined')
+        AND status NOT IN ('ended','missed','declined')
       ORDER BY created_at DESC
       LIMIT 1
     `
@@ -33,13 +36,12 @@ router.post('/', async (req, res) => {
   try {
     const { fromUser, toUser, callType } = req.body
 
-    // End any existing active calls first
+    // Close any existing active calls first
     await sql`
       UPDATE call_signals SET status = 'ended', updated_at = NOW()
       WHERE (from_user = ${fromUser} OR to_user = ${fromUser})
-        AND status NOT IN ('ended', 'missed', 'declined')
+        AND status NOT IN ('ended','missed','declined')
     `
-
     const [row] = await sql`
       INSERT INTO call_signals (from_user, to_user, call_type, status)
       VALUES (${fromUser}, ${toUser}, ${callType}, 'calling')
@@ -52,14 +54,19 @@ router.post('/', async (req, res) => {
   }
 })
 
-// PATCH /api/signals/:id — update status (accepted, declined, ended)
+// PATCH /api/signals/:id — update status and/or SDP fields
 router.patch('/:id', async (req, res) => {
   try {
-    const { status } = req.body
+    const { id } = req.params
+    const { status, sdpOffer, sdpAnswer } = req.body
+
     const [row] = await sql`
-      UPDATE call_signals
-      SET status = ${status}, updated_at = NOW()
-      WHERE id = ${req.params.id}
+      UPDATE call_signals SET
+        status     = COALESCE(${status     ?? null}, status),
+        sdp_offer  = COALESCE(${sdpOffer  ?? null}, sdp_offer),
+        sdp_answer = COALESCE(${sdpAnswer ?? null}, sdp_answer),
+        updated_at = NOW()
+      WHERE id = ${id}
       RETURNING *
     `
     res.json(row ?? null)

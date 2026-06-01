@@ -79,15 +79,19 @@ export interface CallSignal {
   to_user: string
   call_type: string
   status: 'calling' | 'accepted' | 'declined' | 'ended' | 'missed'
+  sdp_offer:  string | null
+  sdp_answer: string | null
   created_at: string
   updated_at: string
 }
 
 export const signalsApi = {
-  get:    (user: string)                    => get<CallSignal | null>(`/signals?user=${encodeURIComponent(user)}`),
+  get:    (user: string) => get<CallSignal | null>(`/signals?user=${encodeURIComponent(user)}`),
+  getById:(id: string)   => get<CallSignal | null>(`/signals?id=${id}`),
   start:  (fromUser: string, toUser: string, callType: string) =>
     post<CallSignal>('/signals', { fromUser, toUser, callType }),
-  update: (id: string, status: string)     => patch<CallSignal>(`/signals/${id}`, { status }),
+  update: (id: string, fields: { status?: string; sdpOffer?: string; sdpAnswer?: string }) =>
+    patch<CallSignal>(`/signals/${id}`, fields),
 }
 
 // ─── Health ────────────────────────────────────────────────────────────────

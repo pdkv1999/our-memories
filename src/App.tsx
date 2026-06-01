@@ -73,14 +73,14 @@ function AppContent() {
 
   async function acceptIncoming() {
     if (!incomingSignal) return
-    await signalsApi.update(incomingSignal.id, 'accepted').catch(() => {})
+    await signalsApi.update(incomingSignal.id, { status: 'accepted' }).catch(() => {})
     setActiveSignal({ ...incomingSignal, status: 'accepted' })
     setIncomingSignal(null)
   }
 
   async function declineIncoming() {
     if (!incomingSignal) return
-    await signalsApi.update(incomingSignal.id, 'declined').catch(() => {})
+    await signalsApi.update(incomingSignal.id, { status: 'declined' }).catch(() => {})
     setIncomingSignal(null)
   }
 
