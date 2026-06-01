@@ -79,10 +79,7 @@ export interface CallSignal {
   to_user: string
   call_type: string
   status: 'calling' | 'accepted' | 'declined' | 'ended' | 'missed'
-  sdp_offer:   string | null
-  sdp_answer:  string | null
-  caller_ice:  RTCIceCandidateInit[]
-  callee_ice:  RTCIceCandidateInit[]
+  room_name: string
   created_at: string
   updated_at: string
 }
@@ -90,12 +87,10 @@ export interface CallSignal {
 export const signalsApi = {
   get:    (user: string) => get<CallSignal | null>(`/signals?user=${encodeURIComponent(user)}`),
   getById:(id: string)   => get<CallSignal | null>(`/signals?id=${id}`),
-  start:  (fromUser: string, toUser: string, callType: string) =>
-    post<CallSignal>('/signals', { fromUser, toUser, callType }),
-  update: (id: string, fields: { status?: string; sdpOffer?: string; sdpAnswer?: string }) =>
-    patch<CallSignal>(`/signals/${id}`, fields),
-  addIce: (id: string, role: 'caller' | 'callee', candidate: RTCIceCandidateInit) =>
-    post<{ ok: boolean }>(`/signals/${id}/ice`, { role, candidate }),
+  start:  (fromUser: string, toUser: string, callType: string, roomName: string) =>
+    post<CallSignal>('/signals', { fromUser, toUser, callType, roomName }),
+  update: (id: string, status: string) =>
+    patch<CallSignal>(`/signals/${id}`, { status }),
 }
 
 // ─── Health ────────────────────────────────────────────────────────────────

@@ -63,7 +63,9 @@ function AppContent() {
 
   async function startCall(type: CallType) {
     try {
-      const signal = await signalsApi.start(state.currentUser, partnerName, type)
+      // Room name: short UUID, hard to guess, consistent per call
+      const roomName = `om-${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
+      const signal = await signalsApi.start(state.currentUser, partnerName, type, roomName)
       setActiveSignal(signal)
       setIncomingSignal(null)
     } catch (err) {
@@ -73,14 +75,14 @@ function AppContent() {
 
   async function acceptIncoming() {
     if (!incomingSignal) return
-    await signalsApi.update(incomingSignal.id, { status: 'accepted' }).catch(() => {})
+    await signalsApi.update(incomingSignal.id, 'accepted').catch(() => {})
     setActiveSignal({ ...incomingSignal, status: 'accepted' })
     setIncomingSignal(null)
   }
 
   async function declineIncoming() {
     if (!incomingSignal) return
-    await signalsApi.update(incomingSignal.id, { status: 'declined' }).catch(() => {})
+    await signalsApi.update(incomingSignal.id, 'declined').catch(() => {})
     setIncomingSignal(null)
   }
 

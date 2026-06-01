@@ -25,44 +25,27 @@ router.get('/', async (req, res) => {
 // POST /api/signals — start a call
 router.post('/', async (req, res) => {
   try {
-    const { fromUser, toUser, callType } = req.body
+    const { fromUser, toUser, callType, roomName } = req.body
     await sql`
       UPDATE call_signals SET status='ended', updated_at=NOW()
       WHERE (from_user=${fromUser} OR to_user=${fromUser})
         AND status NOT IN ('ended','missed','declined')`
     const [row] = await sql`
-      INSERT INTO call_signals (from_user,to_user,call_type,status)
-      VALUES (${fromUser},${toUser},${callType},'calling') RETURNING *`
+      INSERT INTO call_signals (from_user, to_user, call_type, status, room_name)
+      VALUES (${fromUser}, ${toUser}, ${callType}, 'calling', ${roomName})
+      RETURNING *`
     res.status(201).json(row)
   } catch (err) { console.error(err); res.status(500).json({ error: 'DB error' }) }
 })
 
-// PATCH /api/signals/:id — update status, offer, answer
+// PATCH /api/signals/:id — update status
 router.patch('/:id', async (req, res) => {
   try {
-    const { status, sdpOffer, sdpAnswer } = req.body
+    const { status } = req.body
     const [row] = await sql`
-      UPDATE call_signals SET
-        status     = COALESCE(${status    ?? null}, status),
-        sdp_offer  = COALESCE(${sdpOffer  ?? null}, sdp_offer),
-        sdp_answer = COALESCE(${sdpAnswer ?? null}, sdp_answer),
-        updated_at = NOW()
-      WHERE id = ${req.params.id} RETURNING *`
+      UPDATE call_signals SET status=${status}, updated_at=NOW()
+      WHERE id=${req.params.id} RETURNING *`
     res.json(row ?? null)
-  } catch (err) { console.error(err); res.status(500).json({ error: 'DB error' }) }
-})
-
-// POST /api/signals/:id/ice — append one ICE candidate (trickle ICE)
-router.post('/:id/ice', async (req, res) => {
-  try {
-    const { role, candidate } = req.body  // role: 'caller' | 'callee'
-    const col = role === 'caller' ? 'caller_ice' : 'callee_ice'
-    if (col === 'caller_ice') {
-      await sql`UPDATE call_signals SET caller_ice = caller_ice || ${JSON.stringify([candidate])}::jsonb, updated_at=NOW() WHERE id=${req.params.id}`
-    } else {
-      await sql`UPDATE call_signals SET callee_ice = callee_ice || ${JSON.stringify([candidate])}::jsonb, updated_at=NOW() WHERE id=${req.params.id}`
-    }
-    res.json({ ok: true })
   } catch (err) { console.error(err); res.status(500).json({ error: 'DB error' }) }
 })
 
