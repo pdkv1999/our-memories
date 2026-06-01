@@ -2,19 +2,11 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Mail, User, ArrowRight, Lock, AlertCircle } from 'lucide-react'
 
-interface RegisteredUser { name: string; email: string }
-
-const USERS_KEY = 'love-life-registered-users'
-
-function getRegisteredUsers(): RegisteredUser[] {
-  try { return JSON.parse(localStorage.getItem(USERS_KEY) ?? '[]') } catch { return [] }
-}
-
-function saveRegisteredUser(user: RegisteredUser) {
-  const users = getRegisteredUsers()
-  const exists = users.find(u => u.email === user.email)
-  if (!exists) localStorage.setItem(USERS_KEY, JSON.stringify([...users, user]))
-}
+// Only these two emails are allowed into the app
+const ALLOWED_EMAILS = [
+  'pdkv1999@gmail.com',
+  'potturibhavanisireesha@gmail.com',
+]
 
 interface Props {
   onLogin: (name: string, email: string) => void
@@ -33,21 +25,15 @@ export default function LoginPage({ onLogin }: Props) {
     const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedName || !trimmedEmail) return
 
-    // Check if this email is already taken by a different name
-    const users = getRegisteredUsers()
-    const existing = users.find(u => u.email === trimmedEmail)
-
-    if (existing && existing.name !== trimmedName) {
-      setError(`This email is already used by ${existing.name}. Please use a different email.`)
+    // Only the two of us are allowed
+    if (!ALLOWED_EMAILS.includes(trimmedEmail)) {
+      setError('This email is not recognised. This space is private — only the two of us can enter.')
       return
     }
 
     setError('')
     setLoading(true)
     await new Promise(r => setTimeout(r, 600))
-
-    // Register if new, then login
-    saveRegisteredUser({ name: trimmedName, email: trimmedEmail })
     onLogin(trimmedName, trimmedEmail)
   }
 
@@ -116,7 +102,7 @@ export default function LoginPage({ onLogin }: Props) {
                   onChange={e => handleChange('name', e.target.value)}
                   onFocus={() => setFocused('name')}
                   onBlur={() => setFocused(null)}
-                  placeholder="e.g. Dileep or Siri"
+                  placeholder="Dileep or Siri"
                   className="flex-1 outline-none text-sm bg-transparent text-gray-800 placeholder-gray-300"
                   autoComplete="name"
                   autoFocus
