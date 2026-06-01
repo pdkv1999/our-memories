@@ -29,7 +29,7 @@ function GalleryPage() {
 }
 
 function AppContent() {
-  const { state, dispatch, login, saveCallRecord } = useApp()
+  const { state, dispatch, login, saveCallRecord, partnerName } = useApp()
 
   if (!state.isLoggedIn) {
     return <LoginPage onLogin={login} />
@@ -63,7 +63,7 @@ function AppContent() {
 
   function acceptIncoming() {
     if (!incomingCallOffer) return
-    const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner'
+    const otherUser = partnerName
     const call: ActiveCall = {
       id: incomingCallOffer.callId,
       type: incomingCallOffer.callType,

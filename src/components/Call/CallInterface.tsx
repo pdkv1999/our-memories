@@ -95,7 +95,7 @@ function CallTimer({ startedAt }: { startedAt: string }) {
 }
 
 export function CallScreen({ call, incomingOffer, onEnd }: CallScreenProps) {
-  const { state } = useApp()
+  const { state, partnerName } = useApp()
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const [isSpeakerOff, setIsSpeakerOff] = useState(false)
@@ -111,7 +111,7 @@ export function CallScreen({ call, incomingOffer, onEnd }: CallScreenProps) {
   } = useWebRTC({
     callId: call.id,
     localUser: state.currentUser,
-    remoteUser: state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner',
+    remoteUser: partnerName,
     callType: call.type,
     onRemoteStream: () => setCallConnected(true),
     onCallEnded: onEnd,
@@ -155,7 +155,7 @@ export function CallScreen({ call, incomingOffer, onEnd }: CallScreenProps) {
     onEnd()
   }
 
-  const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner'
+  const otherUser = partnerName
   const isVideo = call.type === 'video'
 
   return (

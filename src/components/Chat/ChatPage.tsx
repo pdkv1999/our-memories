@@ -110,7 +110,7 @@ function GalleryPicker({ onPick, onClose }: { onPick: (photoId: string, thumb: s
 // ── Main ChatPage ─────────────────────────────────────────────────────────────
 
 export default function ChatPage({ onStartCall, onBack }: { onStartCall: (type: 'video' | 'voice') => void; onBack?: () => void }) {
-  const { state, sendMessage, dispatch } = useApp()
+  const { state, sendMessage, dispatch, partnerName } = useApp()
 
   const [text, setText] = useState('')
   const [showEmoji, setShowEmoji] = useState(false)
@@ -127,7 +127,7 @@ export default function ChatPage({ onStartCall, onBack }: { onStartCall: (type: 
   const recordTimerRef = useRef<ReturnType<typeof setInterval>>()
   const recordStartRef = useRef(0)
 
-  const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Your partner'
+  const otherUser = partnerName
 
   // Auto-scroll to bottom on new message
   useEffect(() => {

@@ -64,7 +64,7 @@ function AudioPlayer({ src, duration }: { src: string; duration?: number }) {
 }
 
 export default function MessageBubble({ message, isOwn, replyMessage, onReply }: Props) {
-  const { state, dispatch, reactToMessage } = useApp()
+  const { state, dispatch, reactToMessage, partnerName } = useApp()
   const [showReactions, setShowReactions] = useState(false)
   const longPressRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -77,7 +77,7 @@ export default function MessageBubble({ message, isOwn, replyMessage, onReply }:
     setShowReactions(true)
   }
 
-  const otherUser = state.messages.find(m => m.sender !== state.currentUser)?.sender ?? 'Partner'
+  const otherUser = partnerName
   const isEmojiOnly = message.type === 'text' && /^(\p{Emoji}\s*)+$/u.test(message.content.trim()) && message.content.length <= 8
 
   return (

@@ -1,12 +1,7 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, Mail, ArrowRight, Lock, AlertCircle } from 'lucide-react'
-
-// Email → name mapping — only these two can enter
-const EMAIL_MAP: Record<string, string> = {
-  'pdkv1999@gmail.com':                'Dileep',
-  'potturibhavanisireesha@gmail.com':  'Siri',
-}
+import { EMAIL_MAP } from '../constants'
 
 interface Props {
   onLogin: (name: string, email: string) => void

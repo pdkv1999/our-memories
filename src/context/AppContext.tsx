@@ -6,6 +6,7 @@ import {
 import { compressImage, isSupported } from '../utils/compression'
 import { saveState, loadState } from '../utils/storage'
 import { photosApi, albumsApi, messagesApi, callsApi, checkHealth } from '../api/client'
+import { getPartnerName } from '../constants'
 
 type Action =
   | { type: 'SET_PHOTOS'; photos: Photo[] }
@@ -50,6 +51,7 @@ type Action =
   | { type: 'SET_ACTIVE_CALL'; call: ActiveCall | null }
   | { type: 'UPDATE_CALL_STATUS'; status: ActiveCall['status'] }
   | { type: 'ADD_CALL_RECORD'; record: CallRecord }
+  | { type: 'SET_MESSAGES'; messages: Message[] }
   | { type: 'LOGIN'; name: string; email: string }
   | { type: 'LOGOUT' }
 
@@ -318,6 +320,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ADD_CALL_RECORD':
       return { ...state, callRecords: [action.record, ...state.callRecords] }
 
+    case 'SET_MESSAGES':
+      return { ...state, messages: action.messages }
+
     case 'LOGIN':
       return { ...state, currentUser: action.name, userEmail: action.email, isLoggedIn: true }
 
@@ -333,6 +338,7 @@ interface AppContextValue {
   state: AppState
   dispatch: React.Dispatch<Action>
   apiAvailable: boolean
+  partnerName: string
   login: (name: string, email: string) => void
   logout: () => void
   uploadFiles: (files: File[]) => Promise<void>
@@ -435,6 +441,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const locked = state.lightboxPhotoId !== null || state.isUploadOpen
     document.body.classList.toggle('modal-open', locked)
   }, [state.lightboxPhotoId, state.isUploadOpen])
+
+  // ── Real-time message polling ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!apiAvailable || !state.isLoggedIn) return
+
+    const CHAT_INTERVAL  = 3_000   // 3 s when chat is open
+    const BADGE_INTERVAL = 10_000  // 10 s for unread badge elsewhere
+
+    async function fetchMessages() {
+      try {
+        const latest = await messagesApi.list()
+        const normalised: Message[] = latest.map((m: any) => ({
+          ...m,
+          read: m.isRead,
+          reactions: m.reactions ?? [],
+          timestamp: m.timestamp ?? new Date().toISOString(),
+        }))
+        // Only update if something actually changed
+        const lastNew = normalised[normalised.length - 1]
+        const lastOld = state.messages[state.messages.length - 1]
+        if (normalised.length !== state.messages.length || lastNew?.id !== lastOld?.id) {
+          dispatch({ type: 'SET_MESSAGES', messages: normalised })
+        }
+      } catch { /* ignore transient errors */ }
+    }
+
+    const interval = setInterval(fetchMessages, state.currentPage === 'chat' ? CHAT_INTERVAL : BADGE_INTERVAL)
+    return () => clearInterval(interval)
+  }, [apiAvailable, state.isLoggedIn, state.currentPage, state.messages.length])
 
   // Mark messages read when navigating to chat
   useEffect(() => {
@@ -637,9 +672,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [apiAvailable])
 
+  const partnerName = getPartnerName(state.currentUser)
+
   return (
     <AppContext.Provider value={{
-      state, dispatch, apiAvailable, login, logout,
+      state, dispatch, apiAvailable, partnerName, login, logout,
       uploadFiles, deletePhotos, likePhoto,
       addComment, deleteComment, createAlbum, getFilteredPhotos,
       getAlbumPhotos, navigatePhoto, sendMessage, reactToMessage, saveCallRecord,
