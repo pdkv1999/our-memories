@@ -63,8 +63,10 @@ function AppContent() {
 
   async function startCall(type: CallType) {
     try {
-      // Room name: short UUID, hard to guess, consistent per call
-      const roomName = `om-${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
+      // Generate a Google Meet compatible 3-4-3 code e.g. "xkf-bqwz-mjp"
+      const letters = 'abcdefghijklmnopqrstuvwxyz'
+      const r = (n: number) => Array.from({ length: n }, () => letters[Math.floor(Math.random() * letters.length)]).join('')
+      const roomName = `${r(3)}-${r(4)}-${r(3)}`
       const signal = await signalsApi.start(state.currentUser, partnerName, type, roomName)
       setActiveSignal(signal)
       setIncomingSignal(null)
