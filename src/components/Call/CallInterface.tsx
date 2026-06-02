@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { PhoneOff, Phone, PhoneMissed, Video, ExternalLink } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { signalsApi, CallSignal } from '../../api/client'
@@ -29,7 +29,7 @@ export function IncomingCallBanner({ signal, onAccept, onDecline }: {
         <div className="flex-1">
           <p className="font-bold text-gray-900">{signal.from_user}</p>
           <p className="text-sm text-gray-400">
-            Incoming {signal.call_type === 'video' ? '📹 video' : '📞 voice'} call…
+            Incoming {signal.call_type === 'video' ? '📹 video' : '📞 voice'} call via Google Meet
           </p>
         </div>
         <div className="flex gap-2">
@@ -55,8 +55,7 @@ function CallTimer() {
     const t = setInterval(() => setS(n => n + 1), 1000)
     return () => clearInterval(t)
   }, [])
-  const m = Math.floor(s / 60)
-  return <span className="tabular-nums">{m}:{String(s % 60).padStart(2, '0')}</span>
+  return <span className="tabular-nums">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>
 }
 
 // ─── Active call screen ───────────────────────────────────────────────────
@@ -64,8 +63,8 @@ function CallTimer() {
 export function CallScreen({ signal, onEnd }: {
   signal: CallSignal; onEnd: (dur: number) => void
 }) {
-  const { state } = useApp()
-  const [joined,   setJoined]   = useState(false)
+  const { state, partnerName } = useApp()
+  const [joined,  setJoined]  = useState(false)
   const startRef  = useRef(Date.now())
   const pollRef   = useRef<ReturnType<typeof setInterval>>()
   const doneRef   = useRef(false)
@@ -73,27 +72,7 @@ export function CallScreen({ signal, onEnd }: {
   const isCallee  = signal.to_user === state.currentUser
   const otherName = isCallee ? signal.from_user : signal.to_user
   const isVideo   = signal.call_type === 'video'
-
-  // Determine provider from room_name prefix
-  const isRealGoogleMeet = signal.room_name.startsWith('https://meet.google.com/')
-  const isJitsi          = signal.room_name.startsWith('jitsi:')
-
-  const googleMeetUrl = isRealGoogleMeet ? signal.room_name : null
-  const jitsiRoom     = isJitsi ? signal.room_name.replace('jitsi:', '') : null
-
-  // Jitsi URL with config params
-  const jitsiUrl = jitsiRoom ? [
-    `https://meet.jit.si/${encodeURIComponent(jitsiRoom)}`,
-    `#config.prejoinPageEnabled=false`,
-    `&config.startWithAudioMuted=false`,
-    `&config.startWithVideoMuted=${isVideo ? 'false' : 'true'}`,
-    `&config.disableDeepLinking=true`,
-    `&config.toolbarButtons=${encodeURIComponent(JSON.stringify(
-      isVideo ? ['microphone','camera','hangup','tileview','fullscreen']
-              : ['microphone','hangup','fullscreen']
-    ))}`,
-    `&userInfo.displayName=${encodeURIComponent(state.currentUser)}`,
-  ].join('') : null
+  const meetUrl   = signal.room_name  // always a real Google Meet URL
 
   function finish() {
     if (doneRef.current) return
@@ -107,8 +86,8 @@ export function CallScreen({ signal, onEnd }: {
     finish()
   }
 
-  function openMeet() {
-    if (googleMeetUrl) window.open(googleMeetUrl, '_blank', 'noopener,noreferrer')
+  function joinMeet() {
+    window.open(meetUrl, '_blank', 'noopener,noreferrer')
     setJoined(true)
   }
 
@@ -117,8 +96,7 @@ export function CallScreen({ signal, onEnd }: {
     pollRef.current = setInterval(async () => {
       try {
         const latest = await signalsApi.getById(signal.id)
-        if (!latest) { finish(); return }
-        if (['ended', 'declined', 'missed'].includes(latest.status)) finish()
+        if (!latest || ['ended', 'declined', 'missed'].includes(latest.status)) finish()
       } catch { /* ignore */ }
     }, 2000)
 
@@ -134,88 +112,78 @@ export function CallScreen({ signal, onEnd }: {
     return () => { clearInterval(pollRef.current); clearTimeout(missTimer) }
   }, [])
 
-  // ── Jitsi embed (default reliable fallback) ───────────────────────────────
-  if (jitsiUrl) {
-    return (
-      <div className="fixed inset-0 z-[600] bg-gray-950 flex flex-col">
-        <div className="flex items-center justify-between px-5 pt-10 pb-3 bg-black/60 backdrop-blur-sm shrink-0">
-          <div>
-            <p className="text-white font-semibold text-lg">{otherName}</p>
-            <p className="text-white/50 text-xs">{isVideo ? '📹 Video call' : '📞 Voice call'}</p>
-          </div>
-          <button onClick={handleEnd}
-            className="flex items-center gap-2 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-semibold text-sm px-5 py-2.5 rounded-full transition-all">
-            <PhoneOff size={16} /> End call
-          </button>
-        </div>
-        <iframe src={jitsiUrl}
-          allow="camera; microphone; fullscreen; display-capture; autoplay; speaker-selection"
-          className="flex-1 w-full border-0 bg-gray-900" title="Call" />
-      </div>
-    )
-  }
-
-  // ── Google Meet (opens new tab — can't be embedded) ────────────────────────
   return (
-    <div className="fixed inset-0 z-[600] bg-gradient-to-b from-gray-900 to-gray-950 flex flex-col items-center justify-between py-16 px-6">
+    <div className="fixed inset-0 z-[600] flex flex-col items-center justify-between py-20 px-6"
+      style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}>
 
-      {/* Partner avatar */}
-      <div className="flex flex-col items-center gap-4">
+      {/* Subtle animated rings */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+        {[1, 2, 3, 4].map(i => (
+          <motion.div key={i} className="absolute rounded-full border border-white/5"
+            animate={{ scale: [1, 2.5], opacity: [0.3, 0] }}
+            transition={{ duration: 3, repeat: Infinity, delay: i * 0.7, ease: 'easeOut' }}
+            style={{ width: 120, height: 120 }}
+          />
+        ))}
+      </div>
+
+      {/* Partner info */}
+      <div className="relative flex flex-col items-center gap-5 z-10">
         <div className="relative">
           {!joined && [1, 2, 3].map(i => (
-            <motion.div key={i}
-              animate={{ scale: [1, 1 + i * 0.2], opacity: [0.3, 0] }}
-              transition={{ repeat: Infinity, duration: 2, delay: i * 0.6, ease: 'easeOut' }}
-              className="absolute inset-0 rounded-full bg-rose-500/20"
+            <motion.div key={i} className="absolute inset-0 rounded-full bg-rose-500/20"
+              animate={{ scale: [1, 1 + i * 0.25], opacity: [0.4, 0] }}
+              transition={{ repeat: Infinity, duration: 2.5, delay: i * 0.6, ease: 'easeOut' }}
             />
           ))}
-          <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-rose-400 to-violet-500 flex items-center justify-center text-white text-5xl font-bold shadow-2xl">
+          <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-rose-400 to-violet-500 flex items-center justify-center text-white text-6xl font-bold shadow-2xl ring-4 ring-white/10">
             {otherName[0]}
           </div>
-        </div>
-        <div className="text-center">
-          <h2 className="text-white text-3xl font-bold">{otherName}</h2>
-          <p className="text-white/50 text-sm mt-1">
-            {joined
-              ? <span className="flex items-center justify-center gap-2 text-green-400">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
-                  Connected on Google Meet · <CallTimer />
-                </span>
-              : isCallee ? `${signal.from_user} is calling you…` : `Calling ${otherName}…`
-            }
-          </p>
-        </div>
-      </div>
-
-      {/* Google Meet card */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="w-full max-w-sm">
-        <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 text-center border border-white/10">
-          <div className="flex items-center justify-center gap-2 mb-5">
-            <svg viewBox="0 0 192 192" className="w-8 h-8">
-              <circle cx="96" cy="96" r="96" fill="white" fillOpacity="0.1"/>
+          {/* Google Meet badge */}
+          <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg p-1.5">
+            <svg viewBox="0 0 192 192" className="w-full h-full">
               <path d="M96 56c-22.1 0-40 17.9-40 40H16c0-44.2 35.8-80 80-80v80H56c0-22.1 17.9-40 40-40z" fill="#fbbc04"/>
               <path d="M136 96c0-22.1-17.9-40-40-40V16c44.2 0 80 35.8 80 80h-80c0 22.1-17.9 40-40 40z" fill="#0f9d58" transform="rotate(90 96 96)"/>
               <path d="M96 136c22.1 0 40-17.9 40-40h40c0 44.2-35.8 80-80 80v-80h40c0 22.1-17.9 40-40 40z" fill="#4285f4" transform="rotate(180 96 96)"/>
               <path d="M56 96c0 22.1 17.9 40 40 40v40c-44.2 0-80-35.8-80-80h80c0-22.1 17.9-40 40-40z" fill="#ea4335" transform="rotate(270 96 96)"/>
             </svg>
-            <span className="text-white font-semibold text-lg">Google Meet</span>
           </div>
-
-          <button onClick={openMeet}
-            className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 font-bold py-4 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all shadow-lg text-sm">
-            <ExternalLink size={18} />
-            {joined ? 'Rejoin Google Meet' : `${isVideo ? 'Join Video Call' : 'Join Voice Call'} on Google Meet`}
-          </button>
-
-          {!joined && (
-            <p className="text-white/30 text-xs mt-3">Opens in a new tab — sign in with your Gmail</p>
-          )}
         </div>
+
+        <div className="text-center">
+          <h2 className="text-white text-3xl font-bold tracking-tight">{otherName}</h2>
+          <p className="mt-2 text-sm">
+            {joined ? (
+              <span className="flex items-center justify-center gap-2 text-green-400 font-medium">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                In call · <CallTimer />
+              </span>
+            ) : (
+              <span className="text-white/40">
+                {isCallee ? `${signal.from_user} is calling you…` : `Calling ${otherName}…`}
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Join button */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }} className="w-full max-w-xs z-10">
+        <button onClick={joinMeet}
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 active:scale-95 text-gray-900 font-bold py-4 rounded-2xl shadow-xl transition-all text-base">
+          <ExternalLink size={18} className="text-[#4285f4]" />
+          {joined ? 'Rejoin on Google Meet' : `${isVideo ? 'Start Video' : 'Start Voice'} on Google Meet`}
+        </button>
+        {!joined && (
+          <p className="text-center text-white/30 text-xs mt-3">
+            Opens Google Meet · {isCallee ? `${signal.from_user} invited you` : `${partnerName} was notified by email`}
+          </p>
+        )}
       </motion.div>
 
       {/* End call */}
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-3 z-10">
         <button onClick={handleEnd}
           className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 active:scale-95 flex items-center justify-center text-white shadow-xl transition-all">
           <PhoneOff size={26} />

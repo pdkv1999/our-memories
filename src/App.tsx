@@ -66,28 +66,21 @@ function AppContent() {
   }, [state.isLoggedIn, apiAvailable, state.currentUser, activeSignal])
 
   async function startCall(type: CallType) {
+    if (!isGoogleConfigured()) {
+      alert('Google Meet is not set up yet.\n\nAdd VITE_GOOGLE_CLIENT_ID to your environment variables.\nSee the setup instructions in the README.')
+      return
+    }
     try {
-      let roomName: string
-
-      if (isGoogleConfigured()) {
-        // Real Google Meet via Calendar API — callee gets email notification
-        const calleeEmail = getEmailByName(partnerName)
-        const token = await requestGoogleToken()
-        const meetUrl = await createGoogleMeetEvent(token, state.currentUser, calleeEmail)
-        // Store the full URL so CallScreen knows it's a real Google Meet link
-        roomName = meetUrl  // e.g. "https://meet.google.com/abc-defg-xyz"
-      } else {
-        // Jitsi fallback — always works, no auth needed
-        const jitsiCode = `OurMemories-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
-        roomName = `jitsi:${jitsiCode}`
-      }
-
-      const signal = await signalsApi.start(state.currentUser, partnerName, type, roomName)
+      const calleeEmail = getEmailByName(partnerName)
+      const token       = await requestGoogleToken()
+      const meetUrl     = await createGoogleMeetEvent(token, state.currentUser, calleeEmail)
+      // meetUrl is a real Google-issued URL: https://meet.google.com/abc-defg-xyz
+      const signal = await signalsApi.start(state.currentUser, partnerName, type, meetUrl)
       setActiveSignal(signal)
       setIncomingSignal(null)
     } catch (err: any) {
-      console.error('Failed to start call:', err)
-      alert(`Could not start call: ${err.message}`)
+      console.error('Call failed:', err)
+      alert(`Could not start call:\n${err.message}`)
     }
   }
 
