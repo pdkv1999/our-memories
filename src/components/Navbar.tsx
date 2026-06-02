@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { Heart, GalleryHorizontal, BookMarked, Sparkles, Upload, Search, X, Menu, LogOut, MessageCircleHeart } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { Page } from '../types'
+import { AnimatePresence } from 'framer-motion'
+import GooglePhotosPicker from './GooglePhotosPicker'
 
 function avatarColor(name: string) {
   const palette = ['bg-rose-400', 'bg-violet-400', 'bg-sky-400', 'bg-amber-400', 'bg-emerald-400']
@@ -10,8 +12,9 @@ function avatarColor(name: string) {
 
 export default function Navbar() {
   const { state, dispatch, logout, apiAvailable } = useApp()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [menuOpen,      setMenuOpen]      = useState(false)
+  const [searchOpen,    setSearchOpen]    = useState(false)
+  const [showGPicker,   setShowGPicker]   = useState(false)
 
   const navItems: { page: Page; label: string; icon: React.ReactNode; badge?: number }[] = [
     { page: 'gallery',  label: 'Gallery',  icon: <GalleryHorizontal size={18} /> },
@@ -21,6 +24,7 @@ export default function Navbar() {
   ]
 
   return (
+    <>
     <nav className="fixed top-0 inset-x-0 z-50 glass border-b border-rose-100">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
 
@@ -87,6 +91,22 @@ export default function Navbar() {
           title={apiAvailable ? 'Database connected' : 'Offline — changes saved locally'}
           className={`w-2.5 h-2.5 rounded-full shrink-0 hidden sm:block ${apiAvailable ? 'bg-green-400' : 'bg-amber-400'}`}
         />
+
+        {/* Google Photos import */}
+        <button
+          onClick={() => setShowGPicker(true)}
+          title="Import from Google Photos"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 transition-colors"
+        >
+          {/* Google Photos pinwheel icon */}
+          <svg viewBox="0 0 192 192" className="w-4 h-4">
+            <path d="M96 56c-22.1 0-40 17.9-40 40H16c0-44.2 35.8-80 80-80v80H56c0-22.1 17.9-40 40-40z" fill="#fbbc04"/>
+            <path d="M136 96c0-22.1-17.9-40-40-40V16c44.2 0 80 35.8 80 80h-80c0 22.1-17.9 40-40 40z" fill="#0f9d58" transform="rotate(90 96 96)"/>
+            <path d="M96 136c22.1 0 40-17.9 40-40h40c0 44.2-35.8 80-80 80v-80h40c0 22.1-17.9 40-40 40z" fill="#4285f4" transform="rotate(180 96 96)"/>
+            <path d="M56 96c0 22.1 17.9 40 40 40v40c-44.2 0-80-35.8-80-80h80c0-22.1 17.9-40 40-40z" fill="#ea4335" transform="rotate(270 96 96)"/>
+          </svg>
+          <span>Photos</span>
+        </button>
 
         {/* Upload button */}
         <button
@@ -157,5 +177,11 @@ export default function Navbar() {
 
       {menuOpen && <div className="fixed inset-0 z-[-1]" onClick={() => setMenuOpen(false)} />}
     </nav>
+
+    {/* Google Photos Picker */}
+    <AnimatePresence>
+      {showGPicker && <GooglePhotosPicker onClose={() => setShowGPicker(false)} />}
+    </AnimatePresence>
+    </>
   )
 }
