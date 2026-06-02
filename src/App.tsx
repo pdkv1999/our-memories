@@ -12,6 +12,8 @@ import ChatPage from './components/Chat/ChatPage'
 import { CallScreen, IncomingCallBanner } from './components/Call/CallInterface'
 import { signalsApi, CallSignal } from './api/client'
 import { CallType } from './types'
+import { requestGoogleToken, createGoogleMeetEvent, isGoogleConfigured } from './utils/googleMeet'
+import { getEmailByName } from './constants'
 
 function GalleryPage() {
   const { state } = useApp()
@@ -63,15 +65,28 @@ function AppContent() {
 
   async function startCall(type: CallType) {
     try {
-      // Generate a Google Meet compatible 3-4-3 code e.g. "xkf-bqwz-mjp"
-      const letters = 'abcdefghijklmnopqrstuvwxyz'
-      const r = (n: number) => Array.from({ length: n }, () => letters[Math.floor(Math.random() * letters.length)]).join('')
-      const roomName = `${r(3)}-${r(4)}-${r(3)}`
+      let roomName: string
+
+      if (isGoogleConfigured()) {
+        // OAuth → Calendar API → real Google Meet link + email notification to partner
+        const calleeEmail = getEmailByName(partnerName)
+        const token = await requestGoogleToken()
+        const meetUrl = await createGoogleMeetEvent(token, state.currentUser, calleeEmail)
+        // meetUrl looks like https://meet.google.com/abc-defg-xyz — extract the code
+        roomName = meetUrl.replace('https://meet.google.com/', '')
+      } else {
+        // Fallback: generate a random Meet-format code (no email notification)
+        const letters = 'abcdefghijklmnopqrstuvwxyz'
+        const r = (n: number) => Array.from({ length: n }, () => letters[Math.floor(Math.random() * letters.length)]).join('')
+        roomName = `${r(3)}-${r(4)}-${r(3)}`
+      }
+
       const signal = await signalsApi.start(state.currentUser, partnerName, type, roomName)
       setActiveSignal(signal)
       setIncomingSignal(null)
-    } catch (err) {
-      console.error('Failed to start call', err)
+    } catch (err: any) {
+      console.error('Failed to start call:', err)
+      alert(`Could not start call: ${err.message}`)
     }
   }
 

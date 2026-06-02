@@ -9,3 +9,8 @@ export function getPartnerName(currentUser: string): string {
   const names = Object.values(EMAIL_MAP)
   return names.find(n => n !== currentUser) ?? 'Partner'
 }
+
+// Given a name, return their email
+export function getEmailByName(name: string): string {
+  return Object.entries(EMAIL_MAP).find(([, n]) => n === name)?.[0] ?? ''
+}
