@@ -70,17 +70,16 @@ function AppContent() {
       let roomName: string
 
       if (isGoogleConfigured()) {
-        // OAuth → Calendar API → real Google Meet link + email notification to partner
+        // Real Google Meet via Calendar API — callee gets email notification
         const calleeEmail = getEmailByName(partnerName)
         const token = await requestGoogleToken()
         const meetUrl = await createGoogleMeetEvent(token, state.currentUser, calleeEmail)
-        // meetUrl looks like https://meet.google.com/abc-defg-xyz — extract the code
-        roomName = meetUrl.replace('https://meet.google.com/', '')
+        // Store the full URL so CallScreen knows it's a real Google Meet link
+        roomName = meetUrl  // e.g. "https://meet.google.com/abc-defg-xyz"
       } else {
-        // Fallback: generate a random Meet-format code (no email notification)
-        const letters = 'abcdefghijklmnopqrstuvwxyz'
-        const r = (n: number) => Array.from({ length: n }, () => letters[Math.floor(Math.random() * letters.length)]).join('')
-        roomName = `${r(3)}-${r(4)}-${r(3)}`
+        // Jitsi fallback — always works, no auth needed
+        const jitsiCode = `OurMemories-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
+        roomName = `jitsi:${jitsiCode}`
       }
 
       const signal = await signalsApi.start(state.currentUser, partnerName, type, roomName)
