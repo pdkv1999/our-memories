@@ -14,11 +14,13 @@ import { signalsApi, CallSignal } from './api/client'
 import { CallType } from './types'
 import { requestGoogleToken, createGoogleMeetEvent, isGoogleConfigured } from './utils/googleMeet'
 import { getEmailByName } from './constants'
+import HeroBanner from './components/HeroBanner'
 
 function GalleryPage() {
   const { state } = useApp()
   return (
     <div className="page-enter">
+      <HeroBanner />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Our Gallery</h1>
         <p className="text-sm text-gray-500 mt-0.5">{state.photos.length} memories shared together</p>
